@@ -1,0 +1,20 @@
+{
+  "name": "Dumpit — 한 줄 입력, 자동 분류",
+  "short_name": "Dumpit",
+  "description": "메모·할일·일정을 한 줄로 입력하면 자동으로 분류해 주는 스마트 앱",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
