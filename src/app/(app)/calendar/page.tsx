@@ -4,21 +4,17 @@ import { SetupNotice } from "@/components/setup/setup-notice";
 import { CalendarEntryRow } from "@/components/calendar/calendar-entry-row";
 import { getEntriesByDueRange } from "@/actions/entries";
 import { loadCategories } from "@/lib/app-data";
+import {
+  addSeoulMonths,
+  buildSeoulCalendarCells,
+  getSeoulDateKeyFromIso,
+  getSeoulDateParts,
+  getSeoulMonthRange,
+  seoulCalendarDate,
+} from "@/lib/dates";
+import { isKoreanHoliday } from "@/lib/korean-holidays";
 import type { Entry } from "@/lib/types";
 import { isSchemaSetupError } from "@/lib/supabase/errors";
-
-function getSeoulDateKey(iso: string) {
-  const date = new Date(iso);
-  return date.toLocaleDateString("sv-SE", {
-    timeZone: "Asia/Seoul",
-  });
-}
-
-function addMonths(year: number, month0: number, delta: number) {
-  const d = new Date(year, month0, 1);
-  d.setMonth(d.getMonth() + delta);
-  return { year: d.getFullYear(), month0: d.getMonth() };
-}
 
 export default async function CalendarPage({
   searchParams,
@@ -26,9 +22,15 @@ export default async function CalendarPage({
   searchParams?: Promise<{ year?: string; month?: string }>;
 }) {
   const now = new Date();
+  const todayParts = getSeoulDateParts(now);
+  const todayKey = getSeoulDateKeyFromIso(now.toISOString());
+
   const sp = searchParams ? await searchParams : undefined;
-  const year = Number(sp?.year ?? now.getFullYear());
-  const month0 = Number(sp?.month ?? now.getMonth() + 1) - 1;
+  const year = Number(sp?.year ?? todayParts.year);
+  const month0 = Number(sp?.month ?? todayParts.month0 + 1) - 1;
+
+  const isCurrentMonth =
+    year === todayParts.year && month0 === todayParts.month0;
 
   const categoriesResult = await loadCategories();
   if (!categoriesResult.ok) {
@@ -40,10 +42,8 @@ export default async function CalendarPage({
     );
   }
 
-  const monthStart = new Date(year, month0, 1, 0, 0, 0, 0);
-  const monthEnd = new Date(year, month0 + 1, 0, 23, 59, 59, 999);
-
-  const types = ["todo", "checklist"] as const;
+  const { start: monthStart, end: monthEnd } = getSeoulMonthRange(year, month0);
+  const types = ["todo", "checklist", "schedule"] as const;
 
   let entries: Entry[] = [];
   try {
@@ -67,27 +67,20 @@ export default async function CalendarPage({
   const byDay = new Map<string, Entry[]>();
   for (const entry of entries) {
     if (!entry.due_at) continue;
-    const key = getSeoulDateKey(entry.due_at);
+    const key = getSeoulDateKeyFromIso(entry.due_at);
     const list = byDay.get(key) ?? [];
     list.push(entry);
     byDay.set(key, list);
   }
 
-  const todayKey = getSeoulDateKey(now.toISOString());
-  const firstCell = new Date(year, month0, 1);
-  // Monday-first calendar
-  const dayOfWeek = firstCell.getDay(); // 0..6 (Sun..Sat)
-  const mondayOffset = (dayOfWeek + 6) % 7;
-  firstCell.setDate(firstCell.getDate() - mondayOffset);
+  const cells = buildSeoulCalendarCells(year, month0);
+  const prev = addSeoulMonths(year, month0, -1);
+  const next = addSeoulMonths(year, month0, 1);
 
-  const cells = Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(firstCell);
-    d.setDate(firstCell.getDate() + i);
-    return d;
-  });
-
-  const prev = addMonths(year, month0, -1);
-  const next = addMonths(year, month0, 1);
+  const monthLabel = seoulCalendarDate(year, month0, 1).toLocaleDateString(
+    "ko-KR",
+    { timeZone: "Asia/Seoul", month: "long" },
+  );
 
   return (
     <>
@@ -97,8 +90,7 @@ export default async function CalendarPage({
           <div>
             <h1 className="text-xl font-semibold text-slate-900">달력</h1>
             <p className="mt-1 text-sm text-slate-500">
-              {monthStart.toLocaleDateString("ko-KR", { month: "long" })}{" "}
-              {year}
+              {monthLabel} {year}
             </p>
           </div>
           <div className="flex gap-2">
@@ -108,6 +100,14 @@ export default async function CalendarPage({
             >
               이전
             </Link>
+            {!isCurrentMonth && (
+              <Link
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+                href="/calendar"
+              >
+                오늘
+              </Link>
+            )}
             <Link
               className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
               href={`/calendar?year=${next.year}&month=${next.month0 + 1}`}
@@ -117,48 +117,53 @@ export default async function CalendarPage({
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 text-xs text-slate-500">
-          {["월", "화", "수", "목", "금", "토", "일"].map((d) => (
-            <div key={d} className="px-1 py-1">
-              {d}
-            </div>
-          ))}
+        <div className="grid grid-cols-7 gap-px rounded-lg border border-slate-200 bg-slate-200 text-center text-xs">
+          <div className="bg-white px-1 py-2 font-medium text-slate-500">월</div>
+          <div className="bg-white px-1 py-2 font-medium text-slate-500">화</div>
+          <div className="bg-white px-1 py-2 font-medium text-slate-500">수</div>
+          <div className="bg-white px-1 py-2 font-medium text-slate-500">목</div>
+          <div className="bg-white px-1 py-2 font-medium text-slate-500">금</div>
+          <div className="bg-white px-1 py-2 font-medium text-blue-600">토</div>
+          <div className="bg-white px-1 py-2 font-medium text-red-600">일</div>
         </div>
 
-        <div className="mt-1 grid grid-cols-7 gap-2">
-          {cells.map((date) => {
-            const key = getSeoulDateKey(date.toISOString());
-            const inMonth = date.getMonth() === month0;
-            const dayEntries = (byDay.get(key) ?? []).sort(
+        <div className="mt-px grid grid-cols-7 gap-px rounded-lg border border-slate-200 bg-slate-200">
+          {cells.map((cell, index) => {
+            const colIndex = index % 7;
+            const isSaturday = colIndex === 5;
+            const isSunday = colIndex === 6;
+            const dayEntries = (byDay.get(cell.key) ?? []).sort(
               (a, b) => (a.due_at ?? "").localeCompare(b.due_at ?? ""),
             );
+            const cellDate = seoulCalendarDate(
+              cell.parts.year,
+              cell.parts.month0,
+              cell.parts.day,
+            );
+
+            let dayColor = "text-slate-900";
+            if (!cell.inMonth) {
+              dayColor = "text-slate-400";
+            } else if (isKoreanHoliday(cellDate) || isSunday) {
+              dayColor = "text-red-600";
+            } else if (isSaturday) {
+              dayColor = "text-blue-600";
+            }
 
             return (
               <div
-                key={key}
-                className={`min-h-[90px] rounded-lg border border-slate-200 bg-white p-2 ${
-                  inMonth ? "" : "bg-slate-50"
-                } ${key === todayKey ? "ring-2 ring-slate-900" : ""}`}
+                key={cell.key}
+                className={`min-h-[88px] min-w-0 bg-white p-1 sm:min-h-[100px] sm:p-1.5 ${
+                  cell.inMonth ? "" : "bg-slate-50"
+                } ${cell.key === todayKey ? "ring-2 ring-inset ring-slate-900" : ""}`}
               >
-                <div
-                  className={`text-xs font-medium ${
-                    inMonth ? "text-slate-900" : "text-slate-400"
-                  }`}
-                >
-                  {date.getDate()}
+                <div className={`text-xs font-semibold sm:text-sm ${dayColor}`}>
+                  {cell.parts.day}
                 </div>
-                <div className="mt-2 space-y-1">
-                  {dayEntries.slice(0, 3).map((entry) => (
-                    <CalendarEntryRow
-                      key={entry.id}
-                      entry={entry}
-                    />
+                <div className="mt-1 space-y-1">
+                  {dayEntries.map((entry) => (
+                    <CalendarEntryRow key={entry.id} entry={entry} />
                   ))}
-                  {dayEntries.length > 3 && (
-                    <div className="text-[11px] text-slate-500">
-                      +{dayEntries.length - 3}
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -168,4 +173,3 @@ export default async function CalendarPage({
     </>
   );
 }
-
