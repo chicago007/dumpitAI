@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { hasSupabaseClientEnv } from "@/lib/supabase/env";
 
 function formatAuthError(message: string) {
   if (message.toLowerCase().includes("email not confirmed")) {
@@ -12,45 +12,63 @@ function formatAuthError(message: string) {
   return message;
 }
 
+const ENV_ERROR =
+  "Supabase 연결 설정이 없습니다. Vercel에 환경 변수를 추가한 뒤 재배포해 주세요.";
+
 export default function SignupPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [envReady, setEnvReady] = useState(true);
+
+  useEffect(() => {
+    if (!hasSupabaseClientEnv()) {
+      setEnvReady(false);
+      setError(ENV_ERROR);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!envReady) return;
+
     setLoading(true);
     setError(null);
     setSuccess(null);
 
-    const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    try {
+      const supabase = createClient();
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
-    if (authError) {
-      setError(formatAuthError(authError.message));
-      setLoading(false);
-      return;
-    }
+      if (authError) {
+        setError(formatAuthError(authError.message));
+        setLoading(false);
+        return;
+      }
 
-    if (!data.session) {
-      setSuccess(
-        "가입이 완료되었습니다. 이메일로 온 인증 링크를 클릭한 뒤 로그인해 주세요.",
+      if (!data.session) {
+        setSuccess(
+          "가입이 완료되었습니다. 이메일로 온 인증 링크를 클릭한 뒤 로그인해 주세요.",
+        );
+        setLoading(false);
+        return;
+      }
+
+      window.location.assign("/");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "회원가입에 실패했습니다.",
       );
       setLoading(false);
-      return;
     }
-
-    router.push("/");
-    router.refresh();
   }
 
   return (
@@ -67,7 +85,8 @@ export default function SignupPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="이메일"
             required
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            disabled={!envReady || loading}
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
           />
           <input
             type="password"
@@ -76,7 +95,8 @@ export default function SignupPage() {
             placeholder="비밀번호 (6자 이상)"
             required
             minLength={6}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            disabled={!envReady || loading}
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
           />
           {error && (
             <p className="text-sm text-red-600" role="alert">
@@ -90,7 +110,7 @@ export default function SignupPage() {
           )}
           <button
             type="submit"
-            disabled={loading}
+            disabled={!envReady || loading}
             className="w-full rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
           >
             {loading ? "가입 중..." : "회원가입"}
