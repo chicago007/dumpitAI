@@ -150,45 +150,35 @@ export function CaptureInput({ categories }: CaptureInputProps) {
               )}
             </div>
 
-            <p className="mb-2 text-xs text-slate-500">타입 변경</p>
-            <div className="mb-3 flex flex-wrap gap-1">
-              {(["memo", "todo", "schedule", "checklist"] as EntryType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setType(t)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    type === t
-                      ? "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+            <div className="mb-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">타입</label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value as EntryType)}
+                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
                 >
-                  {TYPE_LABELS[t]}
-                </button>
-              ))}
-            </div>
-
-            <p className="mb-2 text-xs text-slate-500">카테고리 변경</p>
-            <div className="mb-3 flex flex-wrap gap-1">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => handleCategoryChange(cat.id)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    categoryId === cat.id
-                      ? "text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                  style={
-                    categoryId === cat.id
-                      ? { backgroundColor: cat.color }
-                      : undefined
-                  }
+                  {(["memo", "todo", "schedule", "checklist"] as EntryType[]).map(
+                    (t) => (
+                      <option key={t} value={t}>{TYPE_LABELS[t]}</option>
+                    ),
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">
+                  카테고리
+                </label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
                 >
-                  {cat.name}
-                </button>
-              ))}
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {isTravel && (

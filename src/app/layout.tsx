@@ -33,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen bg-slate-50 antialiased">{children}</body>
     </html>
   );
 }
