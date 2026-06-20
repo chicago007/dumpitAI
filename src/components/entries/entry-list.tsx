@@ -5,12 +5,14 @@ interface EntryListProps {
   entries: Entry[];
   categories: Category[];
   showCheckbox?: boolean;
+  hideType?: boolean;
 }
 
 export function EntryList({
   entries,
   categories,
   showCheckbox = true,
+  hideType = false,
 }: EntryListProps) {
   if (entries.length === 0) {
     return (
@@ -28,6 +30,7 @@ export function EntryList({
           entry={entry}
           categories={categories}
           showCheckbox={showCheckbox}
+          hideType={hideType}
         />
       ))}
     </ul>

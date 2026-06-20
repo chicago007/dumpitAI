@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { Category, EntryType } from "@/lib/types";
 import {
   classifyContent,
+  extractDueDate,
   formatDueLabel,
   TYPE_LABELS,
 } from "@/lib/classify";
@@ -20,6 +21,14 @@ import { createEntry } from "@/actions/entries";
 
 interface CaptureInputProps {
   categories: Category[];
+}
+
+function toDateInputValue(date: Date | null) {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function CaptureInput({ categories }: CaptureInputProps) {
@@ -79,13 +88,17 @@ export function CaptureInput({ categories }: CaptureInputProps) {
     e.preventDefault();
     if (!content.trim()) return;
 
+    const { date: extractedDate, cleaned } = extractDueDate(content);
+    const finalDue = extractedDate ?? dueAt;
+    const finalContent = extractedDate && cleaned ? cleaned : content;
+
     startTransition(async () => {
       try {
         await createEntry({
-          content,
+          content: finalContent,
           type,
           categoryId,
-          dueAt: dueAt?.toISOString() ?? null,
+          dueAt: finalDue?.toISOString() ?? null,
           learnKeyword,
           destination: isTravel ? destination || null : null,
           amount: isTravel ? parseAmountInput(amount) : null,
@@ -103,6 +116,9 @@ export function CaptureInput({ categories }: CaptureInputProps) {
   }
 
   const dueLabel = formatDueLabel(dueAt);
+  const preview = extractDueDate(content);
+  const willStripDate =
+    !!preview.date && preview.cleaned !== content.trim() && !!preview.cleaned;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -110,7 +126,7 @@ export function CaptureInput({ categories }: CaptureInputProps) {
         <textarea
           value={content}
           onChange={(e) => handleChange(e.target.value)}
-          placeholder="생각나는 대로 한 줄 입력하세요... (예: 제주도 항공권 15만원)"
+          placeholder="생각나는 대로 한 줄 입력하세요... (예: 20, 6월 20일 회의)"
           rows={3}
           className="w-full resize-none rounded-t-lg border-0 bg-transparent px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
         />
@@ -118,6 +134,14 @@ export function CaptureInput({ categories }: CaptureInputProps) {
         {content.trim().length > 0 && (
           <div className="border-t border-slate-100 px-4 py-3">
             <p className="mb-2 text-xs font-medium text-slate-500">미리보기</p>
+            {willStripDate && (
+              <p className="mb-2 text-xs text-slate-600">
+                저장 내용:{" "}
+                <span className="font-medium text-slate-800">
+                  {preview.cleaned}
+                </span>
+              </p>
+            )}
             <div className="mb-3 flex flex-wrap gap-2">
               <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
                 {TYPE_LABELS[type]}
@@ -178,6 +202,34 @@ export function CaptureInput({ categories }: CaptureInputProps) {
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-slate-500">일정 날짜</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={toDateInputValue(dueAt)}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setDueAt(new Date(`${e.target.value}T09:00:00`));
+                      setType("schedule");
+                    } else {
+                      setDueAt(null);
+                    }
+                  }}
+                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                />
+                {dueAt && (
+                  <button
+                    type="button"
+                    onClick={() => setDueAt(null)}
+                    className="text-xs text-slate-500 hover:text-slate-700"
+                  >
+                    날짜 제거
+                  </button>
+                )}
               </div>
             </div>
 

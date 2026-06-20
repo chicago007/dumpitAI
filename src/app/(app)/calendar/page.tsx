@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AppNav } from "@/components/layout/app-nav";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { CalendarEntryRow } from "@/components/calendar/calendar-entry-row";
 import { getEntriesByDueRange } from "@/actions/entries";
@@ -34,12 +33,7 @@ export default async function CalendarPage({
 
   const categoriesResult = await loadCategories();
   if (!categoriesResult.ok) {
-    return (
-      <>
-        <AppNav current="/calendar" />
-        <SetupNotice />
-      </>
-    );
+    return <SetupNotice />;
   }
 
   const { start: monthStart, end: monthEnd } = getSeoulMonthRange(year, month0);
@@ -54,12 +48,7 @@ export default async function CalendarPage({
     });
   } catch (error) {
     if (isSchemaSetupError(error)) {
-      return (
-        <>
-          <AppNav current="/calendar" />
-          <SetupNotice />
-        </>
-      );
+      return <SetupNotice />;
     }
     throw error;
   }
@@ -83,9 +72,7 @@ export default async function CalendarPage({
   );
 
   return (
-    <>
-      <AppNav current="/calendar" />
-      <main className="mx-auto max-w-2xl px-4 py-6">
+    <main className="mx-auto max-w-2xl px-4 py-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">달력</h1>
@@ -169,7 +156,6 @@ export default async function CalendarPage({
             );
           })}
         </div>
-      </main>
-    </>
+    </main>
   );
 }

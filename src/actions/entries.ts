@@ -8,6 +8,7 @@ import { buildTravelMetadata } from "@/lib/travel";
 
 export async function getEntries(filters?: {
   status?: string;
+  type?: EntryType;
   categoryId?: string;
   today?: boolean;
   limit?: number;
@@ -21,6 +22,9 @@ export async function getEntries(filters?: {
 
   if (filters?.status) {
     query = query.eq("status", filters.status);
+  }
+  if (filters?.type) {
+    query = query.eq("type", filters.type);
   }
   if (filters?.categoryId) {
     query = query.eq("category_id", filters.categoryId);
@@ -75,6 +79,10 @@ function revalidateEntryPaths() {
   revalidatePath("/today");
   revalidatePath("/calendar");
   revalidatePath("/categories");
+  revalidatePath("/memo");
+  revalidatePath("/todo");
+  revalidatePath("/schedule");
+  revalidatePath("/checklist");
   revalidatePath("/done");
 }
 
