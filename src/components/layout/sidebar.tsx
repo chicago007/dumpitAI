@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SpaceSwitcher } from "@/components/layout/space-switcher";
+import type { Space } from "@/lib/spaces";
 
 export interface SidebarCounts {
   today: number;
@@ -134,10 +136,12 @@ function SidebarContent({
   counts,
   pathname,
   onNavigate,
+  activeSpace,
 }: {
   counts: SidebarCounts;
   pathname: string;
   onNavigate: () => void;
+  activeSpace: Space;
 }) {
   const primaryItems: NavItem[] = [
     { href: "/", label: "입력", icon: <PlusIcon /> },
@@ -167,6 +171,10 @@ function SidebarContent({
         >
           Dumpit
         </Link>
+      </div>
+
+      <div className="mb-4">
+        <SpaceSwitcher activeSpace={activeSpace} />
       </div>
 
       <nav className="flex-1 space-y-6 overflow-y-auto px-2 pb-4">
@@ -212,7 +220,13 @@ function SidebarContent({
   );
 }
 
-export function Sidebar({ counts }: { counts: SidebarCounts }) {
+export function Sidebar({
+  counts,
+  activeSpace,
+}: {
+  counts: SidebarCounts;
+  activeSpace: Space;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -225,6 +239,7 @@ export function Sidebar({ counts }: { counts: SidebarCounts }) {
           counts={counts}
           pathname={pathname}
           onNavigate={closeDrawer}
+          activeSpace={activeSpace}
         />
       </aside>
 
@@ -240,6 +255,9 @@ export function Sidebar({ counts }: { counts: SidebarCounts }) {
         <Link href="/" className="text-base font-bold text-slate-900">
           Dumpit
         </Link>
+        <div className="ml-auto">
+          <SpaceSwitcher activeSpace={activeSpace} compact />
+        </div>
       </header>
 
       {open && (
@@ -262,6 +280,7 @@ export function Sidebar({ counts }: { counts: SidebarCounts }) {
               counts={counts}
               pathname={pathname}
               onNavigate={closeDrawer}
+              activeSpace={activeSpace}
             />
           </aside>
         </div>

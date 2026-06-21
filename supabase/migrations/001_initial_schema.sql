@@ -1,4 +1,4 @@
--- Dumpit initial schema
+-- Dumpit initial schema (safe to re-run)
 
 -- categories
 CREATE TABLE IF NOT EXISTS categories (
@@ -53,10 +53,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS categories_updated_at ON categories;
 CREATE TRIGGER categories_updated_at
   BEFORE UPDATE ON categories
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS entries_updated_at ON entries;
 CREATE TRIGGER entries_updated_at
   BEFORE UPDATE ON entries
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -90,6 +92,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION seed_default_categories();
@@ -98,11 +101,13 @@ CREATE TRIGGER on_auth_user_created
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE entries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users manage own categories" ON categories;
 CREATE POLICY "Users manage own categories"
   ON categories FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage own entries" ON entries;
 CREATE POLICY "Users manage own entries"
   ON entries FOR ALL
   USING (auth.uid() = user_id)

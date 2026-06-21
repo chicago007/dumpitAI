@@ -1,6 +1,7 @@
 export type EntryType = "memo" | "todo" | "schedule" | "checklist";
 export type EntryStatus = "active" | "done" | "archived";
 export type Priority = "low" | "medium" | "high";
+export type Space = "work" | "personal";
 
 export interface Category {
   id: string;
@@ -12,6 +13,7 @@ export interface Category {
   sort_order: number;
   is_default: boolean;
   is_deleted: boolean;
+  space: Space;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +31,7 @@ export interface Entry {
   priority: Priority;
   metadata: Record<string, unknown>;
   is_deleted: boolean;
+  space: Space;
   created_at: string;
   updated_at: string;
   categories?: Category | null;
@@ -50,6 +53,8 @@ export interface CreateEntryInput {
   learnKeyword?: boolean;
   destination?: string | null;
   amount?: number | null;
+  metadata?: Record<string, unknown>;
+  space?: Space;
 }
 
 export interface UpdateEntryInput {

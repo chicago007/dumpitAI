@@ -1,8 +1,21 @@
 import { EntryList } from "@/components/entries/entry-list";
+import { TravelPrepTodoGroups } from "@/components/todo/travel-prep-todo-groups";
+import { ChecklistTemplateEditor } from "@/components/checklist/checklist-template-editor";
+import { TravelChecklistTable } from "@/components/checklist/travel-checklist-table";
 import { SetupNotice } from "@/components/setup/setup-notice";
+import { CategoryDot } from "@/components/ui/category-dot";
 import { TYPE_LABELS } from "@/lib/classify";
+import { isTemplateEntry } from "@/lib/travel-checklist-template";
+import { TRAVEL_CATEGORY_NAME } from "@/lib/travel";
 import { loadCategories, loadEntries } from "@/lib/app-data";
-import type { Entry, EntryType } from "@/lib/types";
+import { syncTravelChecklistEntries } from "@/lib/sync-travel-checklist";
+import { getTravelChecklistTemplate } from "@/actions/travel-checklist-settings";
+import { getActiveTravelPlans } from "@/actions/travel-plan";
+import { getActiveSpace } from "@/actions/space";
+import { groupTravelPrepTodos } from "@/lib/travel-plan";
+import { SPACE_LABELS } from "@/lib/spaces";
+import type { Category, Entry, EntryType } from "@/lib/types";
+import Link from "next/link";
 
 export const TYPE_PATHS: Record<EntryType, string> = {
   memo: "/memo",
@@ -11,7 +24,6 @@ export const TYPE_PATHS: Record<EntryType, string> = {
   checklist: "/checklist",
 };
 
-/** 일정: 가까운 날짜(다가오는 일정)부터, 날짜 없는 항목은 뒤로 */
 function sortSchedulesByDueDate(entries: Entry[]) {
   return [...entries].sort((a, b) => {
     if (!a.due_at && !b.due_at) return 0;
@@ -21,15 +33,66 @@ function sortSchedulesByDueDate(entries: Entry[]) {
   });
 }
 
+function groupEntriesByCategory(entries: Entry[], categories: Category[]) {
+  const byCategory = new Map<string, Entry[]>();
+  const uncategorized: Entry[] = [];
+
+  for (const entry of entries) {
+    if (!entry.category_id) {
+      uncategorized.push(entry);
+      continue;
+    }
+    const list = byCategory.get(entry.category_id) ?? [];
+    list.push(entry);
+    byCategory.set(entry.category_id, list);
+  }
+
+  const groups: { category: Category | null; entries: Entry[] }[] = categories
+    .filter((category) => byCategory.has(category.id))
+    .map((category) => ({
+      category,
+      entries: byCategory.get(category.id)!,
+    }));
+
+  if (uncategorized.length > 0) {
+    groups.push({ category: null, entries: uncategorized });
+  }
+
+  return groups;
+}
+
 export async function TypeEntriesPage({ type }: { type: EntryType }) {
   const label = TYPE_LABELS[type];
+  const activeSpace = await getActiveSpace();
+  const isPersonal = activeSpace === "personal";
 
-  const categoriesResult = await loadCategories();
+  const categoriesResult = await loadCategories(activeSpace);
   if (!categoriesResult.ok) {
     return <SetupNotice />;
   }
 
-  const entriesResult = await loadEntries({ status: "active", type });
+  const travelCategory = categoriesResult.data.find(
+    (c) => c.name === TRAVEL_CATEGORY_NAME,
+  );
+
+  if (type === "checklist" && travelCategory && isPersonal) {
+    await syncTravelChecklistEntries(travelCategory.id);
+  }
+
+  const travelTemplate =
+    type === "checklist" && isPersonal
+      ? await getTravelChecklistTemplate()
+      : null;
+
+  const entriesResult = await loadEntries(
+    type === "checklist"
+      ? { type, space: activeSpace }
+      : { status: "active", type, space: activeSpace },
+  );
+  const todoForTable =
+    type === "checklist" && isPersonal
+      ? await loadEntries({ type: "todo", status: "active", space: activeSpace })
+      : null;
   if (!entriesResult.ok) {
     return <SetupNotice />;
   }
@@ -39,17 +102,187 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
       ? sortSchedulesByDueDate(entriesResult.data)
       : entriesResult.data;
 
+  if (type !== "checklist") {
+    if (type === "todo" && isPersonal) {
+      let travelPlans: Entry[] = [];
+      try {
+        travelPlans = await getActiveTravelPlans();
+      } catch {
+        travelPlans = [];
+      }
+
+      const { groups, otherTodos } = groupTravelPrepTodos(entries, travelPlans);
+
+      return (
+        <main className="mx-auto max-w-2xl px-4 py-6">
+          <h1 className="mb-1 text-xl font-bold text-slate-800">
+            {label} · {SPACE_LABELS[activeSpace]}
+          </h1>
+          <p className="mb-6 text-sm text-slate-500">
+            여행 준비 할일은 묶어서 보고, 펼치기·숨기기로 정리할 수 있습니다.
+          </p>
+
+          {groups.length > 0 && (
+            <TravelPrepTodoGroups
+              groups={groups}
+              categories={categoriesResult.data}
+            />
+          )}
+
+          {otherTodos.length > 0 && (
+            <section className={groups.length > 0 ? "mt-8" : ""}>
+              {groups.length > 0 && (
+                <h2 className="mb-3 text-sm font-semibold text-slate-700">
+                  다른 할일 ({otherTodos.length})
+                </h2>
+              )}
+              <div className="rounded-xl border border-slate-200 bg-white px-4">
+                <EntryList
+                  entries={otherTodos}
+                  categories={categoriesResult.data}
+                  hideType
+                />
+              </div>
+            </section>
+          )}
+
+          {groups.length === 0 && otherTodos.length === 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white px-4">
+              <EntryList
+                entries={[]}
+                categories={categoriesResult.data}
+                hideType
+              />
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-6">
+        <h1 className="mb-1 text-xl font-bold text-slate-800">
+          {label} · {SPACE_LABELS[activeSpace]}
+        </h1>
+        <p className="mb-6 text-sm text-slate-500">활성 {entries.length}건</p>
+        <div className="rounded-xl border border-slate-200 bg-white px-4">
+          <EntryList
+            entries={entries}
+            categories={categoriesResult.data}
+            hideType
+          />
+        </div>
+      </main>
+    );
+  }
+
+  const travelChecklistEntries = entriesResult.data;
+  const prepEntriesForTable =
+    todoForTable?.ok
+      ? [...todoForTable.data, ...travelChecklistEntries]
+      : travelChecklistEntries;
+  const travelNonTemplateEntries = entriesResult.data.filter(
+    (e) =>
+      e.status === "active" &&
+      travelCategory &&
+      e.category_id === travelCategory.id &&
+      !isTemplateEntry(e),
+  );
+  const otherChecklistEntries = entriesResult.data.filter(
+    (e) => e.status === "active" && !isTemplateEntry(e),
+  );
+  const otherCategoryGroups = groupEntriesByCategory(
+    otherChecklistEntries.filter(
+      (e) => !travelCategory || e.category_id !== travelCategory.id,
+    ),
+    categoriesResult.data,
+  );
+
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-bold text-slate-800">{label}</h1>
-      <p className="mb-6 text-sm text-slate-500">활성 {entries.length}건</p>
-      <div className="rounded-xl border border-slate-200 bg-white px-4">
-        <EntryList
-          entries={entries}
-          categories={categoriesResult.data}
-          hideType
-        />
-      </div>
+      <h1 className="mb-1 text-xl font-bold text-slate-800">
+        {label} · {SPACE_LABELS[activeSpace]}
+      </h1>
+      <p className="mb-6 text-sm text-slate-500">
+        여행 체크리스트를 편집하고, 여행 입력 시 할일로 자동 생성되는 항목을
+        관리합니다.
+      </p>
+
+      {travelTemplate && (
+        <ChecklistTemplateEditor initialTemplate={travelTemplate} />
+      )}
+
+      {travelCategory && travelTemplate && (
+        <section className="mb-8">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <CategoryDot color={travelCategory.color} size="md" />
+            <Link
+              href={`/categories/${travelCategory.id}`}
+              className="text-sm font-semibold text-slate-800 hover:text-slate-600"
+            >
+              {travelCategory.name}
+            </Link>
+            <span className="text-xs text-slate-400">여행 준비 표</span>
+          </div>
+          <TravelChecklistTable
+            category={travelCategory}
+            entries={prepEntriesForTable}
+            template={travelTemplate}
+          />
+          {travelNonTemplateEntries.length > 0 && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4">
+              <p className="pt-3 text-xs font-medium text-slate-500">
+                {travelCategory.name} · 추가 항목
+              </p>
+              <EntryList
+                entries={travelNonTemplateEntries}
+                categories={categoriesResult.data}
+                hideType
+              />
+            </div>
+          )}
+        </section>
+      )}
+
+      {otherCategoryGroups.map(({ category, entries: groupEntries }) => (
+        <section key={category?.id ?? "uncategorized"} className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            {category ? (
+              <>
+                <CategoryDot color={category.color} size="md" />
+                <Link
+                  href={`/categories/${category.id}`}
+                  className="text-sm font-semibold text-slate-800 hover:text-slate-600"
+                >
+                  {category.name}
+                </Link>
+                <span className="text-xs text-slate-400">
+                  {groupEntries.length}건
+                </span>
+              </>
+            ) : (
+              <h2 className="text-sm font-semibold text-slate-700">
+                미분류 ({groupEntries.length})
+              </h2>
+            )}
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4">
+            <EntryList
+              entries={groupEntries}
+              categories={categoriesResult.data}
+              hideType
+            />
+          </div>
+        </section>
+      ))}
+
+      {otherCategoryGroups.length === 0 &&
+        !travelCategory &&
+        travelChecklistEntries.length === 0 && (
+          <p className="py-8 text-center text-sm text-slate-500">
+            체크리스트 항목이 없습니다.
+          </p>
+        )}
     </main>
   );
 }

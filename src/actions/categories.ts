@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getActiveSpace } from "@/actions/space";
 import { createClient } from "@/lib/supabase/server";
+import { categorySpaceFromName, type Space } from "@/lib/spaces";
+import type { Category } from "@/lib/types";
 
-const DEFAULT_CATEGORIES = [
+const WORK_CATEGORIES = [
   {
     name: "업무",
     icon: "💼",
@@ -11,80 +14,102 @@ const DEFAULT_CATEGORIES = [
     keywords: ["회의", "보고서", "제출", "프로젝트", "이메일", "미팅", "업무"],
     sort_order: 1,
     is_default: true,
-  },
-  {
-    name: "여행",
-    icon: "✈️",
-    color: "#0EA5E9",
-    keywords: ["항공", "호텔", "여권", "제주", "해외", "여행", "비행기"],
-    sort_order: 2,
-    is_default: true,
-  },
-  {
-    name: "독서",
-    icon: "📚",
-    color: "#92400E",
-    keywords: ["책", "읽기", "독서", "페이지", "도서"],
-    sort_order: 3,
-    is_default: true,
-  },
-  {
-    name: "운동",
-    icon: "🏋️",
-    color: "#EF4444",
-    keywords: ["헬스", "러닝", "요가", "PT", "근력", "운동", "헬스장"],
-    sort_order: 4,
-    is_default: true,
-  },
-  {
-    name: "다이어트",
-    icon: "🥗",
-    color: "#22C55E",
-    keywords: ["칼로리", "체중", "식단", "탄수화물", "다이어트"],
-    sort_order: 5,
-    is_default: true,
-  },
-  {
-    name: "생활",
-    icon: "🏠",
-    color: "#6B7280",
-    keywords: ["장보기", "청소", "세탁", "공과금", "생활"],
-    sort_order: 6,
-    is_default: true,
-  },
-  {
-    name: "건강",
-    icon: "💊",
-    color: "#EC4899",
-    keywords: ["병원", "약", "검진", "수면", "건강"],
-    sort_order: 7,
-    is_default: true,
-  },
-  {
-    name: "재정",
-    icon: "💰",
-    color: "#EAB308",
-    keywords: ["저축", "카드", "예산", "투자", "재정", "돈"],
-    sort_order: 8,
-    is_default: true,
+    space: "work" as const,
   },
   {
     name: "학습",
     icon: "🎓",
     color: "#8B5CF6",
     keywords: ["공부", "강의", "시험", "자격증", "학습"],
-    sort_order: 9,
+    sort_order: 2,
     is_default: true,
+    space: "work" as const,
   },
   {
     name: "기타",
     icon: "📌",
     color: "#9CA3AF",
     keywords: [] as string[],
-    sort_order: 10,
+    sort_order: 3,
     is_default: true,
+    space: "work" as const,
   },
-] as const;
+];
+
+const PERSONAL_CATEGORIES = [
+  {
+    name: "여행",
+    icon: "✈️",
+    color: "#0EA5E9",
+    keywords: ["항공", "호텔", "여권", "제주", "해외", "여행", "비행기"],
+    sort_order: 1,
+    is_default: true,
+    space: "personal" as const,
+  },
+  {
+    name: "독서",
+    icon: "📚",
+    color: "#92400E",
+    keywords: ["책", "읽기", "독서", "페이지", "도서"],
+    sort_order: 2,
+    is_default: true,
+    space: "personal" as const,
+  },
+  {
+    name: "운동",
+    icon: "🏋️",
+    color: "#EF4444",
+    keywords: ["헬스", "러닝", "요가", "PT", "근력", "운동", "헬스장"],
+    sort_order: 3,
+    is_default: true,
+    space: "personal" as const,
+  },
+  {
+    name: "다이어트",
+    icon: "🥗",
+    color: "#22C55E",
+    keywords: ["칼로리", "체중", "식단", "탄수화물", "다이어트"],
+    sort_order: 4,
+    is_default: true,
+    space: "personal" as const,
+  },
+  {
+    name: "생활",
+    icon: "🏠",
+    color: "#6B7280",
+    keywords: ["장보기", "청소", "세탁", "공과금", "생활"],
+    sort_order: 5,
+    is_default: true,
+    space: "personal" as const,
+  },
+  {
+    name: "건강",
+    icon: "💊",
+    color: "#EC4899",
+    keywords: ["병원", "약", "검진", "수면", "건강"],
+    sort_order: 6,
+    is_default: true,
+    space: "personal" as const,
+  },
+  {
+    name: "재정",
+    icon: "💰",
+    color: "#EAB308",
+    keywords: ["저축", "카드", "예산", "투자", "재정", "돈"],
+    sort_order: 7,
+    is_default: true,
+    space: "personal" as const,
+  },
+  {
+    name: "기타",
+    icon: "📌",
+    color: "#9CA3AF",
+    keywords: [] as string[],
+    sort_order: 8,
+    is_default: true,
+    space: "personal" as const,
+  },
+];
 
 export async function seedDefaultCategoriesIfNeeded() {
   const supabase = await createClient();
@@ -96,19 +121,31 @@ export async function seedDefaultCategoriesIfNeeded() {
 
   const { data: existing } = await supabase
     .from("categories")
-    .select("id")
+    .select("id, space")
     .eq("user_id", user.id)
-    .limit(1);
+    .eq("is_deleted", false);
 
-  if (existing && existing.length > 0) return;
-
-  const { error } = await supabase.from("categories").insert(
-    DEFAULT_CATEGORIES.map((category) => ({
-      user_id: user.id,
-      ...category,
-    })),
+  const spacesPresent = new Set(
+    (existing ?? []).map((row) => row.space as Space),
   );
 
+  const toInsert: Array<Record<string, unknown>> = [];
+
+  if (!spacesPresent.has("work")) {
+    for (const category of WORK_CATEGORIES) {
+      toInsert.push({ user_id: user.id, ...category });
+    }
+  }
+
+  if (!spacesPresent.has("personal")) {
+    for (const category of PERSONAL_CATEGORIES) {
+      toInsert.push({ user_id: user.id, ...category });
+    }
+  }
+
+  if (toInsert.length === 0) return;
+
+  const { error } = await supabase.from("categories").insert(toInsert);
   if (error) throw new Error(error.message);
 
   revalidatePath("/");
@@ -116,16 +153,33 @@ export async function seedDefaultCategoriesIfNeeded() {
   revalidatePath("/settings");
 }
 
-export async function getCategories() {
+export async function getCategories(space?: Space) {
+  const supabase = await createClient();
+  const activeSpace = space ?? (await getActiveSpace());
+
+  let query = supabase
+    .from("categories")
+    .select("*")
+    .eq("is_deleted", false)
+    .eq("space", activeSpace)
+    .order("sort_order");
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Category[];
+}
+
+export async function getCategoryById(id: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("categories")
     .select("*")
+    .eq("id", id)
     .eq("is_deleted", false)
-    .order("sort_order");
+    .single();
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return data as Category;
 }
 
 export async function createCategory(input: {
@@ -140,10 +194,13 @@ export async function createCategory(input: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
+  const space = await getActiveSpace();
+
   const { data: existing } = await supabase
     .from("categories")
     .select("sort_order")
     .eq("user_id", user.id)
+    .eq("space", space)
     .order("sort_order", { ascending: false })
     .limit(1);
 
@@ -157,6 +214,7 @@ export async function createCategory(input: {
     keywords: input.keywords ?? [],
     sort_order: sortOrder,
     is_default: false,
+    space,
   });
 
   if (error) throw new Error(error.message);
@@ -196,11 +254,20 @@ export async function deleteCategory(id: string) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
+  const { data: category } = await supabase
+    .from("categories")
+    .select("space")
+    .eq("id", id)
+    .single();
+
+  const space = (category?.space as Space) ?? "personal";
+
   const { data: fallback } = await supabase
     .from("categories")
     .select("id")
     .eq("user_id", user.id)
     .eq("name", "기타")
+    .eq("space", space)
     .eq("is_deleted", false)
     .single();
 

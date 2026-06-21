@@ -1,16 +1,19 @@
 import { EntryList } from "@/components/entries/entry-list";
 import { SetupNotice } from "@/components/setup/setup-notice";
+import { getActiveSpace } from "@/actions/space";
 import { getDoneStats } from "@/actions/entries";
+import { SPACE_LABELS } from "@/lib/spaces";
 import { isSchemaSetupError } from "@/lib/supabase/errors";
 import { loadCategories, loadEntries } from "@/lib/app-data";
 
 export default async function DonePage() {
-  const categoriesResult = await loadCategories();
+  const activeSpace = await getActiveSpace();
+  const categoriesResult = await loadCategories(activeSpace);
   if (!categoriesResult.ok) {
     return <SetupNotice />;
   }
 
-  const doneResult = await loadEntries({ status: "done" });
+  const doneResult = await loadEntries({ status: "done", space: activeSpace });
   if (!doneResult.ok) {
     return <SetupNotice />;
   }
@@ -20,14 +23,16 @@ export default async function DonePage() {
     items: [] as Awaited<ReturnType<typeof getDoneStats>>["items"],
   };
   try {
-    stats = await getDoneStats();
+    stats = await getDoneStats(activeSpace);
   } catch (error) {
     if (!isSchemaSetupError(error)) throw error;
   }
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-bold text-slate-800">완료</h1>
+      <h1 className="mb-1 text-xl font-bold text-slate-800">
+        완료 · {SPACE_LABELS[activeSpace]}
+      </h1>
       <p className="mb-6 text-sm text-slate-500">
         완료한 항목과 이번 주 통계입니다.
       </p>

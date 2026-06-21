@@ -1,4 +1,6 @@
 import type { Category, ClassificationResult, EntryType } from "./types";
+import { TRAVEL_CATEGORY_NAME } from "./travel";
+import { matchesTravelChecklistLabel } from "./travel-checklist-template";
 
 const TODO_KEYWORDS = [
   "해야",
@@ -134,6 +136,45 @@ function parseDayOnlyInput(content: string): DateMatch | null {
   return { date: atNineLocal(now.getFullYear(), now.getMonth(), day), match: match[0] };
 }
 
+function parseMonthEdge(content: string): DateMatch | null {
+  const rangeMatch = content.match(
+    /(\d{1,2})\s*월\s*말\s*(\d{1,2})\s*월\s*초/,
+  );
+  if (rangeMatch) {
+    const month = parseInt(rangeMatch[1], 10);
+    if (month < 1 || month > 12) return null;
+    const now = new Date();
+    const year = now.getFullYear();
+    const lastDay = new Date(year, month, 0).getDate();
+    const day = Math.max(1, lastDay - 2);
+    const date = atNineLocal(year, month - 1, day);
+    return { date: bumpPastDate(date), match: rangeMatch[0] };
+  }
+
+  const earlyMatch = content.match(/(\d{1,2})\s*월\s*초/);
+  if (earlyMatch) {
+    const month = parseInt(earlyMatch[1], 10);
+    if (month < 1 || month > 12) return null;
+    const now = new Date();
+    const date = atNineLocal(now.getFullYear(), month - 1, 3);
+    return { date: bumpPastDate(date), match: earlyMatch[0] };
+  }
+
+  const lateMatch = content.match(/(\d{1,2})\s*월\s*말/);
+  if (lateMatch) {
+    const month = parseInt(lateMatch[1], 10);
+    if (month < 1 || month > 12) return null;
+    const now = new Date();
+    const year = now.getFullYear();
+    const lastDay = new Date(year, month, 0).getDate();
+    const day = Math.max(1, lastDay - 2);
+    const date = atNineLocal(year, month - 1, day);
+    return { date: bumpPastDate(date), match: lateMatch[0] };
+  }
+
+  return null;
+}
+
 function matchDueDate(content: string): DateMatch | null {
   const dayOnly = parseDayOnlyInput(content);
   if (dayOnly) return dayOnly;
@@ -146,6 +187,9 @@ function matchDueDate(content: string): DateMatch | null {
 
   const slash = parseSlashMonthDay(content);
   if (slash) return slash;
+
+  const monthEdge = parseMonthEdge(content);
+  if (monthEdge) return monthEdge;
 
   const now = new Date();
   now.setHours(9, 0, 0, 0);
@@ -222,7 +266,9 @@ export function extractDueDate(content: string): {
 
 function classifyType(content: string, dueAt: Date | null): EntryType {
   const checklistRegex = /체크리스트|\b체크\s*리스트\b|체크리스크|점검/;
-  if (checklistRegex.test(content)) return "checklist";
+  if (checklistRegex.test(content) || matchesTravelChecklistLabel(content)) {
+    return "checklist";
+  }
 
   if (dueAt) return "schedule";
 
@@ -239,10 +285,20 @@ function classifyType(content: string, dueAt: Date | null): EntryType {
 function classifyCategory(
   content: string,
   categories: Category[],
+  type: EntryType,
 ): { category: Category; score: number } {
   const active = categories.filter((c) => !c.is_deleted);
   const fallback =
     active.find((c) => c.name === "기타") ?? active[active.length - 1];
+  const travelCategory = active.find((c) => c.name === TRAVEL_CATEGORY_NAME);
+
+  if (type === "checklist" && travelCategory) {
+    return { category: travelCategory, score: 1 };
+  }
+
+  if (matchesTravelChecklistLabel(content) && travelCategory) {
+    return { category: travelCategory, score: 2 };
+  }
 
   let best = { category: fallback, score: 0 };
 
@@ -266,7 +322,7 @@ export function classifyContent(
   const trimmed = content.trim();
   const dueAt = parseDueDate(trimmed);
   const type = classifyType(trimmed, dueAt);
-  const { category, score } = classifyCategory(trimmed, categories);
+  const { category, score } = classifyCategory(trimmed, categories, type);
   const maxKeywords = Math.max(
     ...categories.map((c) => c.keywords.length),
     1,

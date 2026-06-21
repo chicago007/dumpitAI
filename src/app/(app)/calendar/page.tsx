@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { CalendarEntryRow } from "@/components/calendar/calendar-entry-row";
+import { getActiveSpace } from "@/actions/space";
 import { getEntriesByDueRange } from "@/actions/entries";
 import { loadCategories } from "@/lib/app-data";
 import {
@@ -31,7 +32,8 @@ export default async function CalendarPage({
   const isCurrentMonth =
     year === todayParts.year && month0 === todayParts.month0;
 
-  const categoriesResult = await loadCategories();
+  const activeSpace = await getActiveSpace();
+  const categoriesResult = await loadCategories(activeSpace);
   if (!categoriesResult.ok) {
     return <SetupNotice />;
   }
@@ -45,6 +47,7 @@ export default async function CalendarPage({
       start: monthStart,
       end: monthEnd,
       types: [...types],
+      space: activeSpace,
     });
   } catch (error) {
     if (isSchemaSetupError(error)) {

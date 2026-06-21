@@ -10,6 +10,7 @@ const TRAVEL_DESTINATIONS = [
   "속초",
   "전주",
   "도쿄",
+  "동경",
   "오사카",
   "후쿠오카",
   "교토",
@@ -90,7 +91,44 @@ export function parseDestination(content: string): string | null {
 
 export function normalizeDestination(value: string) {
   if (value === "제주") return "제주도";
+  if (value === "동경" || value === "동경여행") return "도쿄";
   return value;
+}
+
+const DOMESTIC_DESTINATIONS = new Set([
+  "제주도",
+  "부산",
+  "강릉",
+  "경주",
+  "여수",
+  "속초",
+  "전주",
+  "서울",
+]);
+
+const BEACH_DESTINATIONS = new Set([
+  "제주도",
+  "태국",
+  "푸켓",
+  "하와이",
+  "괌",
+  "사이판",
+  "몰디브",
+  "발리",
+  "베트남",
+  "다낭",
+  "호주",
+  "시드니",
+]);
+
+export function isInternationalDestination(destination: string | null) {
+  if (!destination) return true;
+  return !DOMESTIC_DESTINATIONS.has(destination);
+}
+
+export function isBeachDestination(destination: string | null) {
+  if (!destination) return false;
+  return BEACH_DESTINATIONS.has(destination);
 }
 
 export function parseAmount(content: string): number | null {

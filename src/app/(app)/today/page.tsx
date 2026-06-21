@@ -1,25 +1,34 @@
 import { EntryList } from "@/components/entries/entry-list";
 import { SetupNotice } from "@/components/setup/setup-notice";
+import { getActiveSpace } from "@/actions/space";
 import { loadCategories, loadEntries } from "@/lib/app-data";
+import { SPACE_LABELS } from "@/lib/spaces";
 
 export default async function TodayPage() {
-  const categoriesResult = await loadCategories();
+  const activeSpace = await getActiveSpace();
+  const categoriesResult = await loadCategories(activeSpace);
   if (!categoriesResult.ok) {
     return <SetupNotice />;
   }
 
-  const todayResult = await loadEntries({ today: true });
+  const todayResult = await loadEntries({ today: true, space: activeSpace });
   if (!todayResult.ok) {
     return <SetupNotice />;
   }
 
-  const activeResult = await loadEntries({ status: "active", limit: 50 });
+  const activeResult = await loadEntries({
+    status: "active",
+    limit: 50,
+    space: activeSpace,
+  });
   const activeEntries = activeResult.ok ? activeResult.data : [];
   const noDueDate = activeEntries.filter((e) => !e.due_at);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-bold text-slate-800">오늘</h1>
+      <h1 className="mb-1 text-xl font-bold text-slate-800">
+        오늘 · {SPACE_LABELS[activeSpace]}
+      </h1>
       <p className="mb-6 text-sm text-slate-500">
         오늘 마감인 할 일과 일정입니다.
       </p>

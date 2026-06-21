@@ -4,6 +4,7 @@ import { TravelCategoryView } from "@/components/travel/travel-category-view";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { CategoryDot } from "@/components/ui/category-dot";
 import { isTravelCategoryName, sumTravelAmount, formatCurrency } from "@/lib/travel";
+import { getActiveSpace } from "@/actions/space";
 import { loadCategories, loadEntries } from "@/lib/app-data";
 
 export default async function CategoryDetailPage({
@@ -12,7 +13,8 @@ export default async function CategoryDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const categoriesResult = await loadCategories();
+  const activeSpace = await getActiveSpace();
+  const categoriesResult = await loadCategories(activeSpace);
 
   if (!categoriesResult.ok) {
     return <SetupNotice />;
@@ -21,7 +23,7 @@ export default async function CategoryDetailPage({
   const category = categoriesResult.data.find((c) => c.id === id);
   if (!category) notFound();
 
-  const entriesResult = await loadEntries({ categoryId: id });
+  const entriesResult = await loadEntries({ categoryId: id, space: activeSpace });
   const entries = entriesResult.ok ? entriesResult.data : [];
   const isTravel = isTravelCategoryName(category.name);
   const totalAmount = isTravel ? sumTravelAmount(entries) : 0;
