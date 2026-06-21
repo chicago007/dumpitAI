@@ -3,6 +3,7 @@ import { TravelPrepTodoGroups } from "@/components/todo/travel-prep-todo-groups"
 import { ChecklistTemplateEditor } from "@/components/checklist/checklist-template-editor";
 import { TravelChecklistTable } from "@/components/checklist/travel-checklist-table";
 import { SetupNotice } from "@/components/setup/setup-notice";
+import { PageShell, SectionCard } from "@/components/layout/page-shell";
 import { CategoryDot } from "@/components/ui/category-dot";
 import { TYPE_LABELS } from "@/lib/classify";
 import { isTemplateEntry } from "@/lib/travel-checklist-template";
@@ -114,7 +115,7 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
       const { groups, otherTodos } = groupTravelPrepTodos(entries, travelPlans);
 
       return (
-        <main className="mx-auto max-w-2xl px-4 py-6">
+        <main className="mx-auto max-w-2xl px-4 py-5 md:py-8 space-y-4">
           <h1 className="mb-1 text-xl font-bold text-slate-800">
             {label} · {SPACE_LABELS[activeSpace]}
           </h1>
@@ -136,13 +137,13 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
                   다른 할일 ({otherTodos.length})
                 </h2>
               )}
-              <div className="rounded-xl border border-slate-200 bg-white px-4">
+              <SectionCard contentClassName="px-4 pb-2">
                 <EntryList
                   entries={otherTodos}
                   categories={categoriesResult.data}
                   hideType
                 />
-              </div>
+              </SectionCard>
             </section>
           )}
 

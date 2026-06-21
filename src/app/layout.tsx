@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: "#f2f2f7",
   width: "device-width",
   initialScale: 1,
 };
@@ -33,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className="min-h-screen bg-slate-50 antialiased">{children}</body>
+      <body className="min-h-screen bg-background antialiased">{children}</body>
     </html>
   );
 }

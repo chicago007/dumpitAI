@@ -1,4 +1,5 @@
 import { EntryList } from "@/components/entries/entry-list";
+import { PageShell, SectionCard } from "@/components/layout/page-shell";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { getActiveSpace } from "@/actions/space";
 import { loadCategories, loadEntries } from "@/lib/app-data";
@@ -25,37 +26,29 @@ export default async function TodayPage() {
   const noDueDate = activeEntries.filter((e) => !e.due_at);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-bold text-slate-800">
-        오늘 · {SPACE_LABELS[activeSpace]}
-      </h1>
-      <p className="mb-6 text-sm text-slate-500">
-        오늘 마감인 할 일과 일정입니다.
-      </p>
+    <PageShell
+      title={`오늘 · ${SPACE_LABELS[activeSpace]}`}
+      description="오늘 마감인 할 일과 일정입니다."
+    >
+      <SectionCard
+        title={`오늘 (${todayResult.data.length})`}
+        contentClassName="px-4 pb-2"
+      >
+        <EntryList
+          entries={todayResult.data}
+          categories={categoriesResult.data}
+        />
+      </SectionCard>
 
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">
-          오늘 ({todayResult.data.length})
-        </h2>
-        <div className="rounded-xl border border-slate-200 bg-white px-4">
-          <EntryList
-            entries={todayResult.data}
-            categories={categoriesResult.data}
-          />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">
-          마감일 없음 ({noDueDate.length})
-        </h2>
-        <div className="rounded-xl border border-slate-200 bg-white px-4">
-          <EntryList
-            entries={noDueDate.slice(0, 20)}
-            categories={categoriesResult.data}
-          />
-        </div>
-      </section>
-    </main>
+      <SectionCard
+        title={`마감일 없음 (${noDueDate.length})`}
+        contentClassName="px-4 pb-2"
+      >
+        <EntryList
+          entries={noDueDate.slice(0, 20)}
+          categories={categoriesResult.data}
+        />
+      </SectionCard>
+    </PageShell>
   );
 }

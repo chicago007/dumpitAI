@@ -26,9 +26,9 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background">
       <Sidebar counts={counts} activeSpace={activeSpace} />
-      <div className="md:pl-64">{children}</div>
+      <div className="md:pl-[280px]">{children}</div>
     </div>
   );
 }

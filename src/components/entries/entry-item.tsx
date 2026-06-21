@@ -9,6 +9,13 @@ import {
 } from "@/lib/classify";
 import { CategoryDot } from "@/components/ui/category-dot";
 import { TravelFields } from "@/components/travel/travel-fields";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   formatAmountInput,
   formatCurrency,
@@ -19,32 +26,16 @@ import {
   parseDestination,
 } from "@/lib/travel";
 import { deleteEntry, toggleEntryDone, updateEntry } from "@/actions/entries";
+import { getEntryTypeTheme } from "@/lib/entry-type-theme";
 
 interface EntryItemProps {
   entry: Entry;
   categories: Category[];
   showCheckbox?: boolean;
   hideType?: boolean;
-}
-
-function PencilIcon() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18" />
-      <path d="M8 6V4h8v2" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
-  );
+  cardRow?: boolean;
+  accentRow?: boolean;
+  compactMeta?: boolean;
 }
 
 function toDateInputValue(iso: string | null) {
@@ -64,6 +55,9 @@ export function EntryItem({
   categories,
   showCheckbox = true,
   hideType = false,
+  cardRow = false,
+  accentRow = false,
+  compactMeta = false,
 }: EntryItemProps) {
   const category = entry.categories as Category | null | undefined;
   const travelMeta = getTravelMeta(entry.metadata ?? {});
@@ -160,51 +154,47 @@ export function EntryItem({
 
   if (isEditing) {
     return (
-      <li className="py-3">
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <textarea
+      <li className="py-3 first:pt-0">
+        <div className="rounded-xl border border-border/60 bg-muted/40 p-4">
+          <Textarea
             value={content}
             onChange={(e) => handleContentChange(e.target.value)}
             rows={2}
-            className="w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-slate-400 focus:outline-none"
+            className="min-h-[72px] border-0 bg-card shadow-none focus-visible:ring-primary/30"
           />
 
-          <div className="mt-3 flex flex-wrap gap-1">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {(["memo", "todo", "schedule", "checklist"] as EntryType[]).map((t) => (
-              <button
+              <Button
                 key={t}
                 type="button"
+                size="sm"
+                variant={type === t ? "default" : "secondary"}
                 onClick={() => setType(t)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  type === t
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 hover:bg-slate-100"
-                }`}
+                className="rounded-lg h-7 text-xs"
               >
                 {TYPE_LABELS[t]}
-              </button>
+              </Button>
             ))}
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-1">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {categories.map((cat) => (
-              <button
+              <Button
                 key={cat.id}
                 type="button"
+                size="sm"
+                variant={categoryId === cat.id ? "default" : "outline"}
                 onClick={() => handleCategoryChange(cat.id)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  categoryId === cat.id
-                    ? "text-white"
-                    : "bg-white text-slate-600 hover:bg-slate-100"
-                }`}
+                className="rounded-lg h-7 text-xs"
                 style={
                   categoryId === cat.id
-                    ? { backgroundColor: cat.color }
+                    ? { backgroundColor: cat.color, borderColor: cat.color }
                     : undefined
                 }
               >
                 {cat.name}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -218,132 +208,170 @@ export function EntryItem({
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <label className="text-xs text-slate-500">마감일</label>
-            <input
+            <Label>마감일</Label>
+            <Input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+              className="h-8 w-auto text-xs"
             />
             {dueDate && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setDueDate("")}
-                className="text-xs text-slate-500 hover:text-slate-700"
+                className="h-7 text-xs"
               >
                 제거
-              </button>
+              </Button>
             )}
             {dueLabel && (
-              <span className="text-xs text-slate-600">{dueLabel}</span>
+              <span className="text-xs text-muted-foreground">{dueLabel}</span>
             )}
           </div>
 
           {error && (
-            <p className="mt-2 text-sm text-red-600" role="alert">
+            <p className="mt-2 text-sm text-destructive" role="alert">
               {error}
             </p>
           )}
 
           <div className="mt-3 flex gap-2">
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={handleSave}
               disabled={!content.trim() || isPending}
-              className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {isPending ? "저장 중..." : "저장"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              size="sm"
+              variant="outline"
               onClick={resetForm}
               disabled={isPending}
-              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
             >
               취소
-            </button>
+            </Button>
           </div>
         </div>
       </li>
     );
   }
 
+  function handleToggleDone(checked: boolean) {
+    startTransition(async () => {
+      await toggleEntryDone(entry.id, checked);
+    });
+  }
+
+  const typeTheme = getEntryTypeTheme(entry.type);
+  const compactMetaText = [
+    category?.name,
+    entry.due_at ? formatEntryDue(entry.due_at) : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <li className="flex items-center gap-2 py-2.5">
-      {showCheckbox && (
-        <form action={toggleEntryDone.bind(null, entry.id, !isDone)}>
-          <button
-            type="submit"
-            className={`h-4 w-4 shrink-0 rounded border transition-colors ${
-              isDone
-                ? "border-slate-900 bg-slate-900"
-                : "border-slate-300 hover:border-slate-500"
-            }`}
-            aria-label={isDone ? "완료 취소" : "완료"}
-          />
-        </form>
+    <li
+      className={cn(
+        "group flex items-center gap-2.5",
+        accentRow
+          ? "border-l-[3px] bg-muted/20 px-3 py-3"
+          : cardRow
+            ? "rounded-lg border border-border/50 bg-muted/25 px-3 py-2.5 shadow-sm"
+            : "py-2.5 first:pt-0",
       )}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <p
-          className={`min-w-0 truncate text-sm ${
-            isDone ? "text-slate-400 line-through" : "text-slate-800"
-          }`}
-        >
-          {entry.content}
-        </p>
-        {category && (
-          <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium"
-            style={{
-              backgroundColor: `${category.color}18`,
-              color: category.color,
-            }}
-          >
-            <CategoryDot color={category.color} />
-            {category.name}
-          </span>
+      style={
+        accentRow
+          ? { borderLeftColor: typeTheme.color }
+          : undefined
+      }
+    >
+      {showCheckbox && (
+        <Checkbox
+          size="sm"
+          checked={isDone}
+          onCheckedChange={(v) => handleToggleDone(v === true)}
+          disabled={isPending}
+          className="shrink-0"
+          aria-label={isDone ? "완료 취소" : "완료"}
+        />
+      )}
+      <p
+        className={cn(
+          "min-w-0 flex-1 truncate text-sm leading-snug",
+          isDone
+            ? "text-muted-foreground line-through"
+            : "text-foreground font-medium",
         )}
-        {!hideType && (
-          <span className="shrink-0 text-xs text-slate-400">
-            {TYPE_LABELS[entry.type]}
-          </span>
-        )}
-        {entry.due_at && (
-          <span className="shrink-0 text-xs tabular-nums text-slate-400">
-            {formatEntryDue(entry.due_at)}
-          </span>
-        )}
-        {travelMeta.destination && (
-          <span className="shrink-0 text-xs text-slate-400">
-            {travelMeta.destination}
-          </span>
-        )}
-        {travelMeta.amount !== null && (
-          <span className="shrink-0 text-xs text-slate-400">
-            {formatCurrency(travelMeta.amount)}
-          </span>
-        )}
-        {isDone && entry.completed_at && (
-          <span className="shrink-0 text-xs text-slate-400">완료</span>
+      >
+        {entry.content}
+      </p>
+      <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+        {compactMeta && compactMetaText ? (
+          <span className="shrink-0 tabular-nums">{compactMetaText}</span>
+        ) : (
+          <>
+            {category && (
+              <span
+                className="inline-flex max-w-[5.5rem] items-center gap-1 truncate rounded-md px-1.5 py-0.5 font-medium sm:max-w-none"
+                style={{
+                  backgroundColor: `${category.color}18`,
+                  color: category.color,
+                }}
+              >
+                <CategoryDot color={category.color} size="sm" />
+                <span className="truncate">{category.name}</span>
+              </span>
+            )}
+            {!hideType && (
+              <span className="hidden shrink-0 sm:inline">
+                {TYPE_LABELS[entry.type]}
+              </span>
+            )}
+            {entry.due_at && (
+              <span className="shrink-0 tabular-nums">
+                {formatEntryDue(entry.due_at)}
+              </span>
+            )}
+            {travelMeta.destination && (
+              <span className="hidden shrink-0 lg:inline">
+                {travelMeta.destination}
+              </span>
+            )}
+            {travelMeta.amount !== null && (
+              <span className="hidden shrink-0 lg:inline">
+                {formatCurrency(travelMeta.amount)}
+              </span>
+            )}
+          </>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        <button
+      <div className="flex shrink-0 items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={() => setIsEditing(true)}
-          className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className="h-8 w-8 text-muted-foreground"
           aria-label="수정"
         >
-          <PencilIcon />
-        </button>
+          <Pencil className="h-4 w-4" />
+        </Button>
         <form action={deleteEntry.bind(null, entry.id)}>
-          <button
+          <Button
             type="submit"
-            className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
             aria-label="삭제"
           >
-            <TrashIcon />
-          </button>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </form>
       </div>
     </li>
