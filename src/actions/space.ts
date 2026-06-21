@@ -39,6 +39,7 @@ export async function getActiveSpace(): Promise<Space> {
   return "personal";
 }
 
+/** 쿠키 + 레이아웃 갱신만 (빠른 전환) */
 export async function setActiveSpace(space: Space) {
   if (!isSpace(space)) throw new Error("잘못된 공간입니다.");
 
@@ -49,18 +50,22 @@ export async function setActiveSpace(space: Space) {
     sameSite: "lax",
   });
 
+  revalidateAll();
+}
+
+/** 다른 기기 동기화용 — UI에서 await 하지 않고 호출 */
+export async function persistActiveSpace(space: Space) {
+  if (!isSpace(space)) return;
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("로그인이 필요합니다.");
+  if (!user) return;
 
-  const { error } = await supabase.from("user_settings").upsert({
+  await supabase.from("user_settings").upsert({
     user_id: user.id,
     active_space: space,
     updated_at: new Date().toISOString(),
   });
-
-  // 쿠키로 현재 세션은 이미 전환됨. DB 저장 실패(RLS 미설정 등)는 무시.
-  revalidateAll();
 }

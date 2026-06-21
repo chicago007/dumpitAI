@@ -4,16 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SpaceSwitcher } from "@/components/layout/space-switcher";
+import type { SidebarCounts } from "@/actions/entries";
 import type { Space } from "@/lib/spaces";
 
-export interface SidebarCounts {
-  today: number;
-  memo: number;
-  todo: number;
-  schedule: number;
-  checklist: number;
-  done: number;
-}
+export type { SidebarCounts };
 
 interface NavItem {
   href: string;

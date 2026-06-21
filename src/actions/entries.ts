@@ -58,6 +58,68 @@ export async function getEntries(filters?: {
   return data ?? [];
 }
 
+export interface SidebarCounts {
+  today: number;
+  memo: number;
+  todo: number;
+  schedule: number;
+  checklist: number;
+  done: number;
+}
+
+async function countEntries(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  space: Space,
+  filters: {
+    status?: string;
+    type?: EntryType;
+    today?: boolean;
+  },
+) {
+  let query = supabase
+    .from("entries")
+    .select("*", { count: "exact", head: true })
+    .eq("is_deleted", false)
+    .eq("space", space);
+
+  if (filters.status) {
+    query = query.eq("status", filters.status);
+  }
+  if (filters.type) {
+    query = query.eq("type", filters.type);
+  }
+  if (filters.today) {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    query = query
+      .eq("status", "active")
+      .gte("due_at", start.toISOString())
+      .lte("due_at", end.toISOString());
+  }
+
+  const { count, error } = await query;
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+/** 사이드바 숫자 — 전체 행 조회 없이 count만 */
+export async function getSidebarCounts(space: Space): Promise<SidebarCounts> {
+  const supabase = await createClient();
+
+  const [today, memo, todo, schedule, checklist, done] = await Promise.all([
+    countEntries(supabase, space, { today: true }),
+    countEntries(supabase, space, { status: "active", type: "memo" }),
+    countEntries(supabase, space, { status: "active", type: "todo" }),
+    countEntries(supabase, space, { status: "active", type: "schedule" }),
+    countEntries(supabase, space, { status: "active", type: "checklist" }),
+    countEntries(supabase, space, { status: "done" }),
+  ]);
+
+  return { today, memo, todo, schedule, checklist, done };
+}
+
 export async function getEntriesByDueRange(params: {
   start: Date;
   end: Date;

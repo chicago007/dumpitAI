@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { setActiveSpace } from "@/actions/space";
+import { useEffect, useState, useTransition } from "react";
+import { persistActiveSpace, setActiveSpace } from "@/actions/space";
 import {
   SPACE_DESCRIPTIONS,
   SPACE_LABELS,
@@ -66,24 +66,34 @@ const SPACE_STYLES: Record<
 };
 
 export function SpaceSwitcher({ activeSpace, compact }: SpaceSwitcherProps) {
+  const [displaySpace, setDisplaySpace] = useState(activeSpace);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    setDisplaySpace(activeSpace);
+  }, [activeSpace]);
+
   function handleSwitch(space: Space) {
-    if (space === activeSpace || isPending) return;
+    if (space === displaySpace) return;
+
+    setDisplaySpace(space);
+
     startTransition(async () => {
       await setActiveSpace(space);
     });
+
+    void persistActiveSpace(space);
   }
 
   return (
     <div className={compact ? "px-2" : "px-4"}>
       <div
         className={`grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1 ${
-          isPending ? "opacity-70" : ""
+          isPending ? "opacity-80" : ""
         }`}
       >
         {(["work", "personal"] as Space[]).map((space) => {
-          const isActive = space === activeSpace;
+          const isActive = space === displaySpace;
           const styles = SPACE_STYLES[space];
           const Icon = styles.Icon;
           return (
@@ -91,7 +101,7 @@ export function SpaceSwitcher({ activeSpace, compact }: SpaceSwitcherProps) {
               key={space}
               type="button"
               onClick={() => handleSwitch(space)}
-              disabled={isPending}
+              disabled={isPending && space !== displaySpace}
               className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium transition-colors ${
                 isActive ? styles.active : styles.idle
               }`}
@@ -105,7 +115,7 @@ export function SpaceSwitcher({ activeSpace, compact }: SpaceSwitcherProps) {
       </div>
       {!compact && (
         <p className="mt-2 px-1 text-xs text-slate-500">
-          {SPACE_DESCRIPTIONS[activeSpace]}
+          {SPACE_DESCRIPTIONS[displaySpace]}
         </p>
       )}
     </div>
