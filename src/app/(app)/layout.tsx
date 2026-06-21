@@ -7,7 +7,7 @@ const EMPTY_COUNTS: SidebarCounts = {
   memo: 0,
   todo: 0,
   schedule: 0,
-  checklist: 0,
+  boards: 0,
   done: 0,
 };
 

@@ -11,11 +11,13 @@ import {
   isTravelPlanEntry,
 } from "@/lib/travel-plan";
 import { syncTravelChecklistEntries as syncTravelChecklistEntriesInDb } from "@/lib/sync-travel-checklist";
+import { getBoardCount } from "@/actions/boards";
 
 export async function getEntries(filters?: {
   status?: string;
   type?: EntryType;
   categoryId?: string;
+  boardId?: string;
   today?: boolean;
   limit?: number;
   space?: Space;
@@ -38,6 +40,9 @@ export async function getEntries(filters?: {
   }
   if (filters?.categoryId) {
     query = query.eq("category_id", filters.categoryId);
+  }
+  if (filters?.boardId) {
+    query = query.eq("board_id", filters.boardId);
   }
   if (filters?.today) {
     const start = new Date();
@@ -63,7 +68,7 @@ export interface SidebarCounts {
   memo: number;
   todo: number;
   schedule: number;
-  checklist: number;
+  boards: number;
   done: number;
 }
 
@@ -108,16 +113,16 @@ async function countEntries(
 export async function getSidebarCounts(space: Space): Promise<SidebarCounts> {
   const supabase = await createClient();
 
-  const [today, memo, todo, schedule, checklist, done] = await Promise.all([
+  const [today, memo, todo, schedule, boards, done] = await Promise.all([
     countEntries(supabase, space, { today: true }),
     countEntries(supabase, space, { status: "active", type: "memo" }),
     countEntries(supabase, space, { status: "active", type: "todo" }),
     countEntries(supabase, space, { status: "active", type: "schedule" }),
-    countEntries(supabase, space, { status: "active", type: "checklist" }),
+    getBoardCount(space),
     countEntries(supabase, space, { status: "done" }),
   ]);
 
-  return { today, memo, todo, schedule, checklist, done };
+  return { today, memo, todo, schedule, boards, done };
 }
 
 export async function getEntriesByDueRange(params: {
@@ -157,7 +162,7 @@ function revalidateEntryPaths() {
   revalidatePath("/memo");
   revalidatePath("/todo");
   revalidatePath("/schedule");
-  revalidatePath("/checklist");
+  revalidatePath("/boards");
   revalidatePath("/done");
 }
 
@@ -183,6 +188,7 @@ export async function createEntry(input: CreateEntryInput) {
     content: input.content.trim(),
     type: input.type,
     category_id: input.categoryId,
+    board_id: input.boardId ?? null,
     due_at: input.dueAt ?? null,
     status: "active",
     space: entrySpace,
@@ -253,6 +259,71 @@ export async function updateEntry(input: UpdateEntryInput) {
 
   if (error) throw new Error(error.message);
   revalidateEntryPaths();
+}
+
+/** 보드 연결 항목 — metadata 유지 */
+export async function updateBoardLinkedEntry(input: {
+  entryId: string;
+  boardId: string;
+  content: string;
+  dueAt?: string | null;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다.");
+
+  const { data: entry, error: fetchError } = await supabase
+    .from("entries")
+    .select("metadata, board_id")
+    .eq("id", input.entryId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError || !entry) throw new Error("항목을 찾을 수 없습니다.");
+  if (entry.board_id !== input.boardId) {
+    throw new Error("보드에 연결된 항목만 수정할 수 있습니다.");
+  }
+
+  const updates: Record<string, unknown> = {
+    content: input.content.trim(),
+  };
+  if (input.dueAt !== undefined) {
+    updates.due_at = input.dueAt;
+  }
+
+  const { error } = await supabase
+    .from("entries")
+    .update(updates)
+    .eq("id", input.entryId);
+
+  if (error) throw new Error(error.message);
+
+  revalidateEntryPaths();
+  revalidatePath(`/boards/${input.boardId}`);
+}
+
+export async function deleteBoardLinkedEntry(entryId: string, boardId: string) {
+  const supabase = await createClient();
+  const { data: entry } = await supabase
+    .from("entries")
+    .select("metadata")
+    .eq("id", entryId)
+    .single();
+
+  if (entry?.metadata) {
+    const { cleanupChecklistEntryExpense, removeChecklistItemFromOrder } =
+      await import("@/actions/boards");
+    const meta = entry.metadata as Record<string, unknown>;
+    await cleanupChecklistEntryExpense(boardId, entryId, meta);
+    const groupId =
+      typeof meta.checklistGroupId === "string" ? meta.checklistGroupId : null;
+    await removeChecklistItemFromOrder(boardId, groupId, entryId);
+  }
+
+  await deleteEntry(entryId);
+  revalidatePath(`/boards/${boardId}`);
 }
 
 export async function toggleEntryDone(id: string, done: boolean) {

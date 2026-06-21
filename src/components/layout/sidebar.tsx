@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Calendar,
   CheckCircle2,
-  ClipboardList,
+  LayoutGrid,
   LayoutList,
   Menu,
   Plus,
@@ -61,11 +61,11 @@ const TYPE_ITEMS: {
     icon: <Calendar className="h-4 w-4" />,
   },
   {
-    href: ENTRY_TYPE_THEMES.checklist.href,
-    label: ENTRY_TYPE_THEMES.checklist.label,
-    key: "checklist",
-    color: ENTRY_TYPE_THEMES.checklist.color,
-    icon: <ClipboardList className="h-4 w-4" />,
+    href: "/boards",
+    label: "보드",
+    key: "boards",
+    color: "#10b981",
+    icon: <LayoutGrid className="h-4 w-4" />,
   },
 ];
 

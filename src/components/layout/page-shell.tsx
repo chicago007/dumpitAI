@@ -6,6 +6,7 @@ interface PageShellProps {
   children: React.ReactNode;
   className?: string;
   compact?: boolean;
+  actions?: React.ReactNode;
 }
 
 export function PageShell({
@@ -14,6 +15,7 @@ export function PageShell({
   children,
   className,
   compact = false,
+  actions,
 }: PageShellProps) {
   return (
     <main
@@ -24,17 +26,24 @@ export function PageShell({
       )}
     >
       <header className={cn(compact ? "mb-3" : "mb-6")}>
-        <h1
-          className={cn(
-            "font-bold tracking-tight text-foreground",
-            compact ? "text-xl" : "text-2xl",
-          )}
-        >
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        )}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1
+              className={cn(
+                "font-bold tracking-tight text-foreground",
+                compact ? "text-xl" : "text-2xl",
+              )}
+            >
+              {title}
+            </h1>
+            {description && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {description}
+              </p>
+            )}
+          </div>
+          {actions && <div className="shrink-0 pt-0.5">{actions}</div>}
+        </div>
       </header>
       <div className={cn(compact ? "space-y-3" : "space-y-4")}>
         {children}

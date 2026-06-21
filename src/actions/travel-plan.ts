@@ -14,7 +14,7 @@ import type { Entry } from "@/lib/types";
 
 function revalidateAll() {
   revalidatePath("/");
-  revalidatePath("/checklist");
+  revalidatePath("/boards");
   revalidatePath("/schedule");
   revalidatePath("/todo");
   revalidatePath("/today");

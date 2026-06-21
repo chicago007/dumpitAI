@@ -20,17 +20,14 @@ export const DEFAULT_TRAVEL_CHECKLIST_TEMPLATE: TravelChecklistGroup[] = [
         { id: "basic-flight", label: "비행기표" },
         { id: "basic-hotel", label: "호텔" },
         { id: "basic-visa", label: "비자" },
-        { id: "basic-ticket-print", label: "티켓출력" },
         { id: "basic-exchange", label: "환전" },
         { id: "basic-insurance", label: "여행자보험" },
+        { id: "basic-roaming", label: "로밍(유심)" },
       ],
       [
         { id: "basic-parking", label: "공항주차장" },
-        { id: "basic-rental-car", label: "렌터카", excluded: true },
-        { id: "basic-intl-license", label: "국제면허증", excluded: true },
-        { id: "basic-dom-license", label: "국내면허증", excluded: true },
+        { id: "basic-ticket-print", label: "티켓출력" },
         { id: "basic-health-pass", label: "헬스패스" },
-        { id: "basic-roaming", label: "로밍(유심)" },
       ],
     ],
   },
@@ -39,10 +36,17 @@ export const DEFAULT_TRAVEL_CHECKLIST_TEMPLATE: TravelChecklistGroup[] = [
     rows: [
       [
         { id: "travel-airport", label: "공항이동(택시예약)" },
-        { id: "travel-tour", label: "투어" },
+        { id: "travel-rental-car", label: "렌터카", excluded: true },
+        { id: "travel-intl-license", label: "국제면허증", excluded: true },
+        { id: "travel-dom-license", label: "국내면허증", excluded: true },
+        { id: "travel-local-tour", label: "현지투어" },
         { id: "travel-food", label: "맛집" },
+      ],
+      [
+        { id: "travel-show", label: "공연" },
         { id: "travel-map", label: "지도" },
         { id: "travel-guide", label: "여행정보(책)" },
+        { id: "travel-local-app", label: "현지앱" },
       ],
     ],
   },
@@ -53,9 +57,9 @@ export const DEFAULT_TRAVEL_CHECKLIST_TEMPLATE: TravelChecklistGroup[] = [
         { id: "hygiene-cosmetics", label: "화장품" },
         { id: "hygiene-toiletries", label: "세면도구" },
         { id: "hygiene-spray", label: "스프레이/젤/빗" },
+        { id: "hygiene-razor", label: "면도기" },
         { id: "hygiene-sunscreen", label: "썬크림" },
         { id: "hygiene-floss", label: "치실" },
-        { id: "hygiene-razor", label: "면도기" },
       ],
     ],
   },
@@ -65,7 +69,7 @@ export const DEFAULT_TRAVEL_CHECKLIST_TEMPLATE: TravelChecklistGroup[] = [
       [
         { id: "personal-powerbank", label: "보조배터리" },
         { id: "personal-charger", label: "충전기" },
-        { id: "personal-adapter", label: "변환기(돼지코)" },
+        { id: "personal-adapter", label: "멀티어댑터" },
         { id: "personal-earphones", label: "유선이어폰" },
         { id: "personal-lens", label: "렌즈" },
         { id: "personal-sunglasses", label: "선글라스" },
@@ -79,27 +83,24 @@ export const DEFAULT_TRAVEL_CHECKLIST_TEMPLATE: TravelChecklistGroup[] = [
         { id: "personal-massager", label: "안마기" },
       ],
       [
+        { id: "personal-knife", label: "다용도칼" },
+        { id: "personal-wallet", label: "지갑" },
+        { id: "personal-mask", label: "마스크" },
         { id: "personal-shorts", label: "(반)바지" },
         { id: "personal-tshirt", label: "티셔츠" },
         { id: "personal-underwear", label: "팬티" },
+      ],
+      [
         { id: "personal-socks", label: "양말" },
-        { id: "personal-swimsuit", label: "수영복" },
+        { id: "personal-shoes", label: "운동화" },
+        { id: "personal-exercise-clothes", label: "운동복(양말)" },
+        { id: "personal-slippers", label: "슬리퍼" },
         { id: "personal-swimcap", label: "수영모자" },
+        { id: "personal-hat", label: "모자" },
       ],
       [
-        { id: "personal-knife", label: "다용도칼" },
-        { id: "personal-mask", label: "마스크" },
-        { id: "personal-wallet", label: "지갑" },
-      ],
-    ],
-  },
-  {
-    name: "운동용품",
-    rows: [
-      [
-        { id: "exercise-shoes", label: "운동화(양말)" },
-        { id: "exercise-clothes", label: "운동복" },
-        { id: "exercise-slippers", label: "슬리퍼" },
+        { id: "personal-swimsuit", label: "수영복" },
+        { id: "personal-rashguard", label: "래쉬가드" },
       ],
     ],
   },
@@ -111,6 +112,7 @@ export const DEFAULT_TRAVEL_CHECKLIST_TEMPLATE: TravelChecklistGroup[] = [
         { id: "medicine-cholesterol", label: "고지혈약" },
         { id: "medicine-allergy", label: "알러지약" },
         { id: "medicine-melatonin", label: "멜라토닌" },
+        { id: "medicine-supplement", label: "영양제" },
       ],
     ],
   },
@@ -118,18 +120,28 @@ export const DEFAULT_TRAVEL_CHECKLIST_TEMPLATE: TravelChecklistGroup[] = [
     name: "음식",
     rows: [
       [
-        { id: "food-ramen", label: "라면" },
-        { id: "food-gochujang", label: "고추장" },
-        { id: "food-soju", label: "소주" },
-        { id: "food-rice", label: "햇반" },
-        { id: "food-kimchi", label: "볶음김치" },
         { id: "food-water", label: "물" },
+        { id: "food-cup-ramen", label: "컵라면" },
+        { id: "food-kimchi", label: "볶음김치" },
+        { id: "food-gochujang", label: "고추장" },
+        { id: "food-rice", label: "햇반" },
+        { id: "food-snack", label: "김병장" },
       ],
+      [{ id: "food-medicine", label: "물약" }],
     ],
   },
 ];
 
 export const TRAVEL_CHECKLIST_TEMPLATE = DEFAULT_TRAVEL_CHECKLIST_TEMPLATE;
+
+export function toBoardChecklistGroups(
+  template: TravelChecklistGroup[] = DEFAULT_TRAVEL_CHECKLIST_TEMPLATE,
+): { name: string; items: string[] }[] {
+  return template.map((group) => ({
+    name: group.name,
+    items: group.rows.flatMap((row) => row.map((item) => item.label)),
+  }));
+}
 
 export function getTravelChecklistId(metadata: Record<string, unknown>) {
   const id = metadata.travelChecklistId;

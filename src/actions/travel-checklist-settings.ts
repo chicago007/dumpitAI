@@ -86,7 +86,7 @@ export async function saveTravelChecklistTemplate(
     throw new Error(error.message);
   }
 
-  revalidatePath("/checklist");
+  revalidatePath("/boards");
   revalidatePath("/");
   revalidatePath("/todo");
 }

@@ -25,7 +25,7 @@ export const ENTRY_TYPE_THEMES: Record<EntryType, EntryTypeTheme> = {
   checklist: {
     color: "#10b981",
     label: "체크리스트",
-    href: "/checklist",
+    href: "/boards",
   },
 };
 

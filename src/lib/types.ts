@@ -24,6 +24,7 @@ export interface Entry {
   content: string;
   type: EntryType;
   category_id: string | null;
+  board_id: string | null;
   status: EntryStatus;
   due_at: string | null;
   end_at: string | null;
@@ -35,6 +36,23 @@ export interface Entry {
   created_at: string;
   updated_at: string;
   categories?: Category | null;
+}
+
+export interface Board {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string;
+  space: Space;
+  sort_order: number;
+  is_deleted: boolean;
+  project_type: string;
+  start_date: string | null;
+  end_date: string | null;
+  budget_total: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ClassificationResult {
@@ -55,6 +73,7 @@ export interface CreateEntryInput {
   amount?: number | null;
   metadata?: Record<string, unknown>;
   space?: Space;
+  boardId?: string | null;
 }
 
 export interface UpdateEntryInput {
