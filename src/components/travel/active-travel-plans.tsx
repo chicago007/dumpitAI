@@ -67,6 +67,8 @@ function TravelPlanCard({
         return typeof dest === "string" && dest === destination;
       });
 
+  const [isPending, startTransition] = useTransition();
+
   const status = buildTravelPlanStatus(
     plan.content,
     relatedPrep,
@@ -76,8 +78,6 @@ function TravelPlanCard({
   );
 
   if (!status) return null;
-
-  const [isPending, startTransition] = useTransition();
 
   function handleToggle(entryId: string, done: boolean) {
     startTransition(async () => {
