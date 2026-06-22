@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createBoardWithWizard } from "@/actions/boards";
 import { getActiveSpace } from "@/actions/space";
 import { classifyWithAI, inferProjectType } from "@/lib/ai-classify";
+import {
+  classifyWithRules,
+} from "@/lib/ai-classify-fallback";
 import type {
   AiInboxClassification,
   InboxLog,
@@ -56,6 +59,17 @@ async function insertEntry(
   if (error) throw new Error(error.message);
 }
 
+async function classifyInboxInput(
+  text: string,
+  categories: Category[],
+): Promise<AiInboxClassification> {
+  try {
+    return await classifyWithAI(text);
+  } catch {
+    return classifyWithRules(text, categories);
+  }
+}
+
 export async function getInboxLogs(limit = 20): Promise<InboxLog[]> {
   const supabase = await createClient();
   const space = await getActiveSpace();
@@ -84,8 +98,6 @@ export async function processInboxInput(
   const trimmed = text.trim();
   if (!trimmed) throw new Error("입력 내용이 비어 있습니다.");
 
-  const classification = await classifyWithAI(trimmed);
-
   const { data: categories, error: catError } = await supabase
     .from("categories")
     .select("*")
@@ -94,6 +106,8 @@ export async function processInboxInput(
 
   if (catError) throw new Error(catError.message);
   const categoryList = (categories ?? []) as Category[];
+
+  const classification = await classifyInboxInput(trimmed, categoryList);
   const defaultCategory = pickDefaultCategory(categoryList, space);
   if (!defaultCategory) {
     throw new Error("카테고리가 없습니다. 설정에서 확인해 주세요.");

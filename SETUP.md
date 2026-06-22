@@ -40,11 +40,9 @@ git push -u origin smart-memo-agent:main
 
 ### 스키마 적용
 
-**SQL Editor** → New query → 아래 파일 **전체** 붙여넣기 후 Run:
+**SQL Editor** → New query → `supabase/schema.sql` **전체** 붙여넣기 후 Run
 
-```
-supabase/schema-agent-full.sql
-```
+> 개별 실행: `supabase/migrations/` 의 `001`~`008` 순서대로
 
 ### Authentication
 
@@ -145,6 +143,6 @@ https://dumpitai.vercel.app/auth/callback
 | 증상 | 원인 | 해결 |
 |------|------|------|
 | dumpit 데이터가 보임 | 기존 Supabase 연결 | `.env.local` URL 교체 |
-| inbox_logs 테이블 없음 | 008 미적용 | `schema-agent-full.sql` 실행 |
+| inbox_logs 테이블 없음 | 008 미적용 | `supabase/schema.sql` 실행 |
 | 로그인 리다이렉트 실패 | Auth URL 미설정 | 5단계 Redirect URLs 추가 |
 | GEMINI_API_KEY 오류 | 키 미설정 | `.env.local` / Vercel env 확인 |

@@ -5,16 +5,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { APP_NAME, APP_TAGLINE } from "@/lib/app-brand";
 import { hasSupabaseClientEnv } from "@/lib/supabase/env";
-
-function formatAuthError(message: string) {
-  if (message.toLowerCase().includes("email not confirmed")) {
-    return "이메일 인증이 필요합니다. 가입 시 받은 메일의 링크를 클릭한 뒤 다시 로그인해 주세요.";
-  }
-  return message;
-}
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { formatAuthError } from "@/lib/auth-errors";
 
 const ENV_ERROR =
-  "Supabase 연결 설정이 없습니다. Vercel에 환경 변수를 추가한 뒤 재배포해 주세요.";
+  "Supabase 연결 설정이 없습니다. .env.local에 Supabase URL과 키를 설정해 주세요.";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -50,7 +46,7 @@ export default function SignupPage() {
       });
 
       if (authError) {
-        setError(formatAuthError(authError.message));
+        setError(formatAuthError(authError));
         setLoading(false);
         return;
       }
@@ -65,9 +61,7 @@ export default function SignupPage() {
 
       window.location.assign("/");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "회원가입에 실패했습니다.",
-      );
+      setError(formatAuthError(err instanceof Error ? err : String(err)));
       setLoading(false);
     }
   }
@@ -80,16 +74,15 @@ export default function SignupPage() {
           <p className="mt-1 text-sm text-slate-500">{APP_TAGLINE}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
+          <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="이메일"
             required
             disabled={!envReady || loading}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
           />
-          <input
+          <Input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -97,10 +90,9 @@ export default function SignupPage() {
             required
             minLength={6}
             disabled={!envReady || loading}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
           />
           {error && (
-            <p className="text-sm text-red-600" role="alert">
+            <p className="text-sm text-destructive" role="alert">
               {error}
             </p>
           )}
@@ -109,17 +101,18 @@ export default function SignupPage() {
               {success}
             </p>
           )}
-          <button
+          <Button
             type="submit"
             disabled={!envReady || loading}
-            className="w-full rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+            className="w-full"
+            size="lg"
           >
             {loading ? "가입 중..." : "회원가입"}
-          </button>
+          </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-slate-500">
+        <p className="mt-4 text-center text-sm text-muted-foreground">
           이미 계정이 있으신가요?{" "}
-          <Link href="/login" className="text-brand-600 hover:underline">
+          <Link href="/login" className="text-primary hover:underline">
             로그인
           </Link>
         </p>

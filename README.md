@@ -39,4 +39,4 @@ npm run dev
 
 ## DB 스키마
 
-신규 Supabase에 `supabase/schema-agent-full.sql` 한 번 실행 (001~008 포함).
+신규 Supabase에 `supabase/schema.sql` 한 번 실행 (001~008 포함).

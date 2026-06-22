@@ -4,6 +4,7 @@ import {
   type ResponseSchema,
 } from "@google/generative-ai";
 import type { AiInboxClassification } from "./ai-inbox-types";
+import { formatGeminiError } from "./ai-classify-fallback";
 
 const RESPONSE_SCHEMA: ResponseSchema = {
   type: SchemaType.OBJECT,
@@ -101,13 +102,16 @@ export async function classifyWithAI(
     },
   });
 
-  const result = await model.generateContent(trimmed);
-  const content = result.response.text();
-  if (!content) {
-    throw new Error("AI 응답을 받지 못했습니다.");
+  try {
+    const result = await model.generateContent(trimmed);
+    const content = result.response.text();
+    if (!content) {
+      throw new Error("AI 응답을 받지 못했습니다.");
+    }
+    return parseClassification(content);
+  } catch (error) {
+    throw new Error(formatGeminiError(error));
   }
-
-  return parseClassification(content);
 }
 
 export function inferProjectType(
