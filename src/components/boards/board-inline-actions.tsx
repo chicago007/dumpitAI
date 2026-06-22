@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteBoard, updateBoard } from "@/actions/boards";
+import { PROJECT_LABEL } from "@/lib/project-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -47,7 +48,7 @@ export function BoardInlineActions({
   function handleDelete() {
     if (
       !confirm(
-        `"${initialName}" 보드를 삭제할까요?\n연결된 할 일은 보드에서만 분리됩니다.`,
+        `"${initialName}" ${PROJECT_LABEL}를 삭제할까요?\n연결된 할 일은 ${PROJECT_LABEL}에서만 분리됩니다.`,
       )
     ) {
       return;
@@ -116,7 +117,7 @@ export function BoardInlineActions({
         className="h-7 w-7 text-muted-foreground"
         disabled={isPending}
         onClick={() => setIsEditing(true)}
-        aria-label="보드 이름 수정"
+        aria-label={`${PROJECT_LABEL} 이름 수정`}
       >
         <Pencil className="h-3.5 w-3.5" />
       </Button>
@@ -127,7 +128,7 @@ export function BoardInlineActions({
         className="h-7 w-7 text-muted-foreground hover:text-destructive"
         disabled={isPending}
         onClick={handleDelete}
-        aria-label="보드 삭제"
+        aria-label={`${PROJECT_LABEL} 삭제`}
       >
         <Trash2 className="h-3.5 w-3.5" />
       </Button>

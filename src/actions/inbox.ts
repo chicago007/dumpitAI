@@ -1,27 +1,34 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createBoardWithWizard } from "@/actions/boards";
-import { getActiveSpace } from "@/actions/space";
-import { classifyWithAI, inferProjectType } from "@/lib/ai-classify";
 import {
-  classifyWithRules,
-} from "@/lib/ai-classify-fallback";
+  applyBoardPreviewItem,
+  createBoardWithWizard,
+  getBoard,
+} from "@/actions/boards";
+import { getActiveSpace } from "@/actions/space";
+import { inferProjectType } from "@/lib/ai-classify";
 import type {
-  AiInboxClassification,
+  InboxPreviewItem,
+  InboxPreviewResult,
   InboxLog,
   InboxProcessResult,
 } from "@/lib/ai-inbox-types";
+import {
+  buildInboxPreview,
+  previewToClassification,
+} from "@/lib/inbox-classify";
 import { createClient } from "@/lib/supabase/server";
 import type { Category, Space } from "@/lib/types";
 
-function revalidateInboxPaths() {
+function revalidateInboxPaths(boardId?: string | null) {
   revalidatePath("/inbox");
   revalidatePath("/");
   revalidatePath("/todo");
   revalidatePath("/schedule");
   revalidatePath("/memo");
   revalidatePath("/boards");
+  if (boardId) revalidatePath(`/boards/${boardId}`);
 }
 
 function pickDefaultCategory(categories: Category[], space: Space) {
@@ -59,15 +66,42 @@ async function insertEntry(
   if (error) throw new Error(error.message);
 }
 
-async function classifyInboxInput(
-  text: string,
-  categories: Category[],
-): Promise<AiInboxClassification> {
-  try {
-    return await classifyWithAI(text);
-  } catch {
-    return classifyWithRules(text, categories);
+function countCreated(
+  items: InboxPreviewItem[],
+): InboxProcessResult["created"] {
+  const created = {
+    todos: 0,
+    schedules: 0,
+    notes: 0,
+    checklist: 0,
+    budget: 0,
+    expense: 0,
+  };
+
+  for (const item of items) {
+    switch (item.kind) {
+      case "todo":
+        created.todos += 1;
+        break;
+      case "schedule":
+        created.schedules += 1;
+        break;
+      case "memo":
+        created.notes += 1;
+        break;
+      case "checklist":
+        created.checklist += 1;
+        break;
+      case "budget":
+        created.budget += 1;
+        break;
+      case "expense":
+        created.expense += 1;
+        break;
+    }
   }
+
+  return created;
 }
 
 export async function getInboxLogs(limit = 20): Promise<InboxLog[]> {
@@ -85,8 +119,25 @@ export async function getInboxLogs(limit = 20): Promise<InboxLog[]> {
   return (data ?? []) as InboxLog[];
 }
 
-export async function processInboxInput(
+/** 1단계: 분류 미리보기 (저장 안 함) */
+export async function previewInboxInput(
   text: string,
+): Promise<InboxPreviewResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다.");
+
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("입력 내용이 비어 있습니다.");
+
+  return buildInboxPreview(trimmed);
+}
+
+/** 2단계: 미리보기 확인 후 저장 */
+export async function saveInboxPreview(
+  preview: InboxPreviewResult,
 ): Promise<InboxProcessResult> {
   const supabase = await createClient();
   const {
@@ -95,9 +146,6 @@ export async function processInboxInput(
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const space = await getActiveSpace();
-  const trimmed = text.trim();
-  if (!trimmed) throw new Error("입력 내용이 비어 있습니다.");
-
   const { data: categories, error: catError } = await supabase
     .from("categories")
     .select("*")
@@ -106,18 +154,16 @@ export async function processInboxInput(
 
   if (catError) throw new Error(catError.message);
   const categoryList = (categories ?? []) as Category[];
-
-  const classification = await classifyInboxInput(trimmed, categoryList);
   const defaultCategory = pickDefaultCategory(categoryList, space);
   if (!defaultCategory) {
     throw new Error("카테고리가 없습니다. 설정에서 확인해 주세요.");
   }
 
   let boardId: string | null = null;
-  if (classification.project) {
-    const projectType = inferProjectType(classification.project);
+  if (preview.project) {
+    const projectType = inferProjectType(preview.project);
     boardId = await createBoardWithWizard({
-      name: classification.project,
+      name: preview.project,
       space,
       projectType,
       defaultCategoryId: defaultCategory.id,
@@ -125,49 +171,69 @@ export async function processInboxInput(
     });
   }
 
-  const created = { todos: 0, schedules: 0, notes: 0 };
+  const created = countCreated(preview.items);
 
-  for (const todo of classification.todos) {
-    await insertEntry(supabase, user.id, {
-      content: todo,
-      type: "todo",
-      categoryId: defaultCategory.id,
-      boardId,
-      dueAt: null,
-      space,
-    });
-    created.todos += 1;
+  if (preview.isProjectBlock && boardId) {
+    const board = await getBoard(boardId);
+    const metadata = (board?.metadata ?? {}) as {
+      checklistGroups?: { id: string }[];
+    };
+    const defaultGroupId = metadata.checklistGroups?.[0]?.id;
+
+    for (const item of preview.items) {
+      await applyBoardPreviewItem(
+        boardId,
+        item,
+        defaultCategory.id,
+        defaultGroupId,
+      );
+    }
+  } else {
+    for (const item of preview.items) {
+      if (item.kind === "todo") {
+        await insertEntry(supabase, user.id, {
+          content: item.content,
+          type: "todo",
+          categoryId: defaultCategory.id,
+          boardId,
+          dueAt: item.dueAt,
+          space,
+        });
+      } else if (item.kind === "schedule") {
+        await insertEntry(supabase, user.id, {
+          content: item.content,
+          type: "schedule",
+          categoryId: defaultCategory.id,
+          boardId,
+          dueAt: item.dueAt,
+          space,
+        });
+      } else if (item.kind === "memo") {
+        await insertEntry(supabase, user.id, {
+          content: item.content,
+          type: "memo",
+          categoryId: defaultCategory.id,
+          boardId,
+          dueAt: null,
+          space,
+        });
+      } else if (boardId) {
+        await applyBoardPreviewItem(
+          boardId,
+          item,
+          defaultCategory.id,
+        );
+      }
+    }
   }
 
-  for (const schedule of classification.schedules) {
-    await insertEntry(supabase, user.id, {
-      content: schedule.title,
-      type: "schedule",
-      categoryId: defaultCategory.id,
-      boardId,
-      dueAt: schedule.start_date,
-      space,
-    });
-    created.schedules += 1;
-  }
-
-  for (const note of classification.notes) {
-    await insertEntry(supabase, user.id, {
-      content: note,
-      type: "memo",
-      categoryId: defaultCategory.id,
-      boardId,
-      dueAt: null,
-      space,
-    });
-    created.notes += 1;
-  }
+  const classification = previewToClassification(preview);
 
   const { data: log, error: logError } = await supabase
     .from("inbox_logs")
     .insert({
       user_id: user.id,
-      original_text: trimmed,
+      original_text: preview.originalText,
       ai_result: classification as unknown as Record<string, unknown>,
       space,
     })
@@ -176,7 +242,7 @@ export async function processInboxInput(
 
   if (logError) throw new Error(logError.message);
 
-  revalidateInboxPaths();
+  revalidateInboxPaths(boardId);
 
   return {
     logId: log.id,
@@ -186,8 +252,10 @@ export async function processInboxInput(
   };
 }
 
-export async function previewInboxClassification(
+/** @deprecated previewInboxInput + saveInboxPreview 사용 */
+export async function processInboxInput(
   text: string,
-): Promise<AiInboxClassification> {
-  return classifyWithAI(text);
+): Promise<InboxProcessResult> {
+  const preview = await previewInboxInput(text);
+  return saveInboxPreview(preview);
 }

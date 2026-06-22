@@ -11,6 +11,33 @@ export interface AiInboxClassification {
   notes: string[];
 }
 
+export type InboxItemKind =
+  | "todo"
+  | "schedule"
+  | "memo"
+  | "checklist"
+  | "budget"
+  | "expense";
+
+export interface InboxPreviewItem {
+  id: string;
+  rawLine: string;
+  kind: InboxItemKind;
+  content: string;
+  dueAt: string | null;
+  amount: number | null;
+  currency: string;
+  groupName: string | null;
+  tabLabel: string;
+}
+
+export interface InboxPreviewResult {
+  project: string | null;
+  isProjectBlock: boolean;
+  items: InboxPreviewItem[];
+  originalText: string;
+}
+
 export interface InboxLog {
   id: string;
   user_id: string;
@@ -28,5 +55,47 @@ export interface InboxProcessResult {
     todos: number;
     schedules: number;
     notes: number;
+    checklist: number;
+    budget: number;
+    expense: number;
   };
 }
+
+export const INBOX_KIND_LABELS: Record<InboxItemKind, string> = {
+  todo: "할일",
+  schedule: "일정",
+  memo: "메모",
+  checklist: "체크리스트",
+  budget: "예산",
+  expense: "지출",
+};
+
+export const GLOBAL_INBOX_KINDS: InboxItemKind[] = [
+  "todo",
+  "schedule",
+  "memo",
+];
+
+export const PROJECT_INBOX_KINDS: InboxItemKind[] = [
+  "checklist",
+  "schedule",
+  "memo",
+  "budget",
+  "expense",
+];
+
+/** @접두어 → 분류 종류 (긴 키 우선 매칭) */
+export const INBOX_PREFIX_ALIASES: Record<string, InboxItemKind> = {
+  checklist: "checklist",
+  expense: "expense",
+  budget: "budget",
+  체크리스트: "checklist",
+  할일: "todo",
+  일정: "schedule",
+  메모: "memo",
+  예산: "budget",
+  지출: "expense",
+  t: "todo",
+  s: "schedule",
+  m: "memo",
+};

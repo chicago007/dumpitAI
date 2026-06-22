@@ -270,6 +270,10 @@ function classifyType(content: string, dueAt: Date | null): EntryType {
     return "checklist";
   }
 
+  if (dueAt && /까지|까진|까지는/.test(content)) {
+    return "todo";
+  }
+
   if (dueAt) return "schedule";
 
   const scheduleScore = SCHEDULE_KEYWORDS.filter((k) =>

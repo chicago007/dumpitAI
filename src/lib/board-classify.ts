@@ -13,6 +13,7 @@ export type BoardInputKind =
   | "expense";
 
 const BUDGET_KEYWORDS = /예산|총\s*예산|budget/i;
+const DEADLINE_PARTICLE = /까지|까진|까지는/;
 const EXPENSE_KEYWORDS =
   /지출|결제|식비|교통비|카페|라멘|점심|저녁|아침|커피|맛집|식당|입장료|관람|쇼핑/;
 const SCHEDULE_KEYWORDS =
@@ -94,7 +95,9 @@ export function classifyBoardInput(content: string): BoardClassifyResult {
 
   let kind: BoardInputKind = "checklist";
 
-  if (BUDGET_KEYWORDS.test(trimmed)) {
+  if (DEADLINE_PARTICLE.test(trimmed)) {
+    kind = "checklist";
+  } else if (BUDGET_KEYWORDS.test(trimmed)) {
     kind = "budget";
   } else if (dueAt || SCHEDULE_KEYWORDS.test(trimmed)) {
     kind = "schedule";

@@ -8,6 +8,7 @@ import {
   BOARD_PROJECT_TYPE_LABELS,
   type BoardProjectType,
 } from "@/lib/board-types";
+import { PROJECT_LABEL } from "@/lib/project-labels";
 import { parseBudgetAmount } from "@/lib/board-templates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,7 +97,7 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
         router.refresh();
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "보드 생성에 실패했습니다.",
+          err instanceof Error ? err.message : `${PROJECT_LABEL} 생성에 실패했습니다.`,
         );
       }
     });
@@ -112,7 +113,7 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
         onClick={() => setOpen(true)}
       >
         <Plus className="h-3.5 w-3.5" />
-        새 보드
+        새 {PROJECT_LABEL}
       </Button>
 
       <Sheet
@@ -124,13 +125,17 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
       >
         <SheetContent side="bottom" className="max-h-[90vh] p-4 pt-6">
           <h2 className="text-base font-semibold text-foreground">
-            {step === 0 ? "새 보드" : step === 1 ? "이 보드는 무엇인가요?" : "세부 정보"}
+            {step === 0
+              ? `새 ${PROJECT_LABEL}`
+              : step === 1
+                ? `이 ${PROJECT_LABEL}는 무엇인가요?`
+                : "세부 정보"}
           </h2>
 
           {step === 0 && (
             <div className="mt-4 space-y-4">
               <div className="space-y-1.5">
-                <Label>보드 이름</Label>
+                <Label>{PROJECT_LABEL} 이름</Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -267,7 +272,7 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
                   disabled={isPending}
                   onClick={handleCreate}
                 >
-                  {isPending ? "생성 중…" : "보드 만들기"}
+                  {isPending ? "생성 중…" : `${PROJECT_LABEL} 만들기`}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">

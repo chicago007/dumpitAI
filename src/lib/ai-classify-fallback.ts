@@ -1,6 +1,7 @@
-import type { Category } from "./types";
-import { classifyContent } from "./classify";
+import { extractDueDate } from "./classify";
 import type { AiInboxClassification } from "./ai-inbox-types";
+
+const DEADLINE_PARTICLE = /까지|까진|까지는/;
 
 /** Gemini API 오류를 사용자용 메시지로 변환 */
 export function formatGeminiError(error: unknown): string {
@@ -25,31 +26,38 @@ export function formatGeminiError(error: unknown): string {
   return `AI 분석에 실패했습니다: ${message.slice(0, 200)}`;
 }
 
-/** Gemini 실패 시 키워드 기반 분류로 대체 */
-export function classifyWithRules(
-  text: string,
-  categories: Category[],
-): AiInboxClassification {
+/** Gemini 실패 시 날짜 규칙 기반 분류 (행동 동사 키워드 사용 안 함) */
+export function classifyWithRules(text: string): AiInboxClassification {
   const trimmed = text.trim();
-  const result = classifyContent(trimmed, categories);
+  const { date, cleaned } = extractDueDate(trimmed);
 
-  const classification: AiInboxClassification = {
+  if (DEADLINE_PARTICLE.test(trimmed)) {
+    return {
+      project: null,
+      todos: [trimmed],
+      schedules: [],
+      notes: [],
+    };
+  }
+
+  if (date) {
+    return {
+      project: null,
+      todos: [],
+      schedules: [
+        {
+          title: cleaned || trimmed,
+          start_date: date.toISOString(),
+        },
+      ],
+      notes: [],
+    };
+  }
+
+  return {
     project: null,
     todos: [],
     schedules: [],
-    notes: [],
+    notes: [trimmed],
   };
-
-  if (result.type === "todo" || result.type === "checklist") {
-    classification.todos.push(trimmed);
-  } else if (result.type === "schedule") {
-    classification.schedules.push({
-      title: trimmed,
-      start_date: result.dueAt?.toISOString() ?? null,
-    });
-  } else {
-    classification.notes.push(trimmed);
-  }
-
-  return classification;
 }

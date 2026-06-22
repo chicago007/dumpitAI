@@ -21,6 +21,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/lib/app-brand";
 import { ENTRY_TYPE_THEMES } from "@/lib/entry-type-theme";
+import { PROJECT_LABEL } from "@/lib/project-labels";
 import type { SidebarCounts } from "@/actions/entries";
 import type { Space } from "@/lib/spaces";
 
@@ -64,7 +65,7 @@ const TYPE_ITEMS: {
   },
   {
     href: "/boards",
-    label: "보드",
+    label: PROJECT_LABEL,
     key: "boards",
     color: "#10b981",
     icon: <LayoutGrid className="h-4 w-4" />,

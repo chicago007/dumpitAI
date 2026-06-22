@@ -7,6 +7,7 @@ import { updateBoardBudget, updateBoardCurrency } from "@/actions/boards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { BoardBudgetCategory, BoardMetadata } from "@/lib/board-types";
+import { PROJECT_LABEL } from "@/lib/project-labels";
 import {
   BOARD_CURRENCIES,
   formatBoardMoney,
@@ -176,7 +177,7 @@ export function BoardBudgetTab({
         </ul>
       ) : (
         <p className="text-sm text-muted-foreground">
-          보드 생성 시 예산을 입력하면 카테고리별 예산이 자동 설정됩니다.
+          {PROJECT_LABEL} 생성 시 예산을 입력하면 카테고리별 예산이 자동 설정됩니다.
         </p>
       )}
     </div>

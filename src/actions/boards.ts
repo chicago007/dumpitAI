@@ -1052,6 +1052,115 @@ export async function submitBoardClassifiedInput(
   return result.kind;
 }
 
+/** Inbox @p 블록 미리보기 항목을 프로젝트 탭에 저장 */
+export async function applyBoardPreviewItem(
+  boardId: string,
+  item: {
+    kind: "checklist" | "schedule" | "memo" | "budget" | "expense" | "todo";
+    content: string;
+    dueAt: string | null;
+    amount: number | null;
+    currency: string;
+    groupName: string | null;
+  },
+  categoryId: string,
+  defaultGroupId?: string,
+) {
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const metadata = parseMetadata(board.metadata);
+  let groups = [...(metadata.checklistGroups ?? [])];
+
+  function resolveChecklistGroupId(
+    groupName?: string | null,
+    fallbackId?: string,
+  ): string {
+    if (groupName) {
+      const key = normalizeGroupKey(groupName);
+      const existing = groups.find((g) => normalizeGroupKey(g.name) === key);
+      if (existing) return existing.id;
+      const id = crypto.randomUUID();
+      groups.push({ id, name: groupName.trim() });
+      return id;
+    }
+    if (fallbackId) return fallbackId;
+    if (groups[0]?.id) return groups[0].id;
+    const id = crypto.randomUUID();
+    groups.push({ id, name: "체크리스트" });
+    return id;
+  }
+
+  const kind = item.kind === "todo" ? "checklist" : item.kind;
+  const groupId = resolveChecklistGroupId(item.groupName, defaultGroupId);
+
+  switch (kind) {
+    case "schedule": {
+      const dueAt =
+        item.dueAt ??
+        new Date(`${new Date().toISOString().slice(0, 10)}T09:00:00`).toISOString();
+      await addBoardSchedule(boardId, item.content, dueAt, categoryId);
+      break;
+    }
+    case "memo":
+      await addBoardMemo(boardId, item.content, categoryId);
+      break;
+    case "budget": {
+      const amount = item.amount ?? 0;
+      if (amount > 0) {
+        await updateBoardBudget(
+          boardId,
+          amount,
+          metadata.budgetCategories ?? [],
+        );
+        const supabase = await createClient();
+        await supabase
+          .from("boards")
+          .update({
+            metadata: {
+              ...metadata,
+              currency: item.currency,
+              checklistGroups: groups,
+            },
+          })
+          .eq("id", boardId);
+      }
+      break;
+    }
+    case "expense": {
+      const amount = item.amount ?? 0;
+      if (amount > 0) {
+        await addBoardExpense(boardId, {
+          amount,
+          category: "기타",
+          memo: item.content,
+          currency: item.currency,
+        });
+      }
+      break;
+    }
+    default:
+      await addChecklistItem(boardId, groupId, item.content, categoryId, {
+        plannedAmount: item.amount,
+        currency: item.currency,
+        dueAt: item.dueAt,
+      });
+      if (groups.length !== (metadata.checklistGroups ?? []).length) {
+        const supabase = await createClient();
+        await supabase
+          .from("boards")
+          .update({
+            metadata: { ...metadata, checklistGroups: groups },
+          })
+          .eq("id", boardId);
+      }
+      break;
+  }
+
+  revalidateBoardPaths(boardId);
+  return kind;
+}
+
 export async function addAiSuggestionsToChecklist(
   boardId: string,
   suggestionIds: string[],

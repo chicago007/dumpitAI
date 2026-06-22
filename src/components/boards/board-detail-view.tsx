@@ -12,6 +12,7 @@ import { BoardMemoTab } from "@/components/boards/board-memo-tab";
 import { BoardBudgetTab } from "@/components/boards/board-budget-tab";
 import { BoardExpenseTab } from "@/components/boards/board-expense-tab";
 import { BoardAiTab } from "@/components/boards/board-ai-tab";
+import { PROJECT_LABEL } from "@/lib/project-labels";
 import { cn } from "@/lib/utils";
 
 interface BoardDetailViewProps {
@@ -54,7 +55,7 @@ export function BoardDetailView({
 
       <nav
         className="flex gap-1 overflow-x-auto pb-1 scrollbar-none"
-        aria-label="보드 탭"
+        aria-label={`${PROJECT_LABEL} 탭`}
       >
         {BOARD_TABS.map((t) => (
           <button

@@ -8,6 +8,7 @@ import { getEntries } from "@/actions/entries";
 import { getActiveSpace } from "@/actions/space";
 import { computeOverallProgress } from "@/lib/board-progress";
 import { loadCategories } from "@/lib/app-data";
+import { PROJECT_LABEL } from "@/lib/project-labels";
 import { SPACE_LABELS } from "@/lib/spaces";
 
 export default async function BoardsPage() {
@@ -43,7 +44,7 @@ export default async function BoardsPage() {
 
   return (
     <PageShell
-      title={`보드 · ${SPACE_LABELS[activeSpace]}`}
+      title={`${PROJECT_LABEL} · ${SPACE_LABELS[activeSpace]}`}
       description="관련 할 일을 묶고 진행률을 한눈에 확인합니다"
       actions={
         <BoardWizard activeSpace={activeSpace} categories={categories} />

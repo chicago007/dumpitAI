@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { learnCategoryKeyword } from "@/actions/categories";
 import { getActiveSpace } from "@/actions/space";
+import { learnCategoryKeyword } from "@/actions/categories";
 import { createClient } from "@/lib/supabase/server";
 import type { CreateEntryInput, EntryType, Space, UpdateEntryInput } from "@/lib/types";
+import { getDefaultCategoryNameForSpace } from "@/lib/spaces";
 import { buildTravelMetadata } from "@/lib/travel";
 import {
   getTravelPlanId,
@@ -211,6 +212,64 @@ export async function createEntry(input: CreateEntryInput) {
     }
   }
 
+  revalidateEntryPaths();
+}
+
+/** 항목을 업무/개인 공간으로 이동 */
+export async function moveEntryToSpace(entryId: string, targetSpace: Space) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다.");
+
+  const { data: entry, error: fetchError } = await supabase
+    .from("entries")
+    .select("id, space, board_id")
+    .eq("id", entryId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError || !entry) throw new Error("항목을 찾을 수 없습니다.");
+  if (entry.space === targetSpace) return;
+
+  const { data: categories, error: catError } = await supabase
+    .from("categories")
+    .select("id, name")
+    .eq("space", targetSpace)
+    .eq("is_deleted", false);
+
+  if (catError) throw new Error(catError.message);
+
+  const preferred = getDefaultCategoryNameForSpace(targetSpace);
+  const categoryId =
+    categories?.find((c) => c.name === preferred)?.id ??
+    categories?.[0]?.id;
+
+  if (!categoryId) {
+    throw new Error("이동할 공간에 카테고리가 없습니다.");
+  }
+
+  let boardId: string | null = entry.board_id;
+  if (boardId) {
+    const { data: board } = await supabase
+      .from("boards")
+      .select("space")
+      .eq("id", boardId)
+      .maybeSingle();
+    if (board?.space !== targetSpace) boardId = null;
+  }
+
+  const { error } = await supabase
+    .from("entries")
+    .update({
+      space: targetSpace,
+      category_id: categoryId,
+      board_id: boardId,
+    })
+    .eq("id", entryId);
+
+  if (error) throw new Error(error.message);
   revalidateEntryPaths();
 }
 

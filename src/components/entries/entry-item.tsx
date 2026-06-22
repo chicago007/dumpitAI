@@ -25,8 +25,9 @@ import {
   parseAmountInput,
   parseDestination,
 } from "@/lib/travel";
-import { deleteEntry, toggleEntryDone, updateEntry } from "@/actions/entries";
+import { deleteEntry, moveEntryToSpace, toggleEntryDone, updateEntry } from "@/actions/entries";
 import { getEntryTypeTheme } from "@/lib/entry-type-theme";
+import { SPACE_LABELS, type Space } from "@/lib/spaces";
 
 interface EntryItemProps {
   entry: Entry;
@@ -206,6 +207,36 @@ export function EntryItem({
               onAmountChange={setAmount}
             />
           )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Label>공간</Label>
+            {(["work", "personal"] as Space[]).map((s) => (
+              <Button
+                key={s}
+                type="button"
+                size="sm"
+                variant={entry.space === s ? "default" : "outline"}
+                disabled={isPending || entry.space === s}
+                onClick={() => {
+                  startTransition(async () => {
+                    try {
+                      await moveEntryToSpace(entry.id, s);
+                      setError(null);
+                    } catch (err) {
+                      setError(
+                        err instanceof Error
+                          ? err.message
+                          : "공간 이동에 실패했습니다.",
+                      );
+                    }
+                  });
+                }}
+                className="h-7 text-xs"
+              >
+                {SPACE_LABELS[s]}
+              </Button>
+            ))}
+          </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Label>마감일</Label>
