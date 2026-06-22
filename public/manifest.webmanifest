@@ -1,7 +1,7 @@
 {
-  "name": "Dumpit — 한 줄 입력, 자동 분류",
-  "short_name": "Dumpit",
-  "description": "메모·할일·일정을 한 줄로 입력하면 자동으로 분류해 주는 스마트 앱",
+  "name": "dumpitAI — AI 비서",
+  "short_name": "dumpitAI",
+  "description": "생각을 입력하면 AI가 프로젝트·할일·일정·메모로 자동 분류합니다",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

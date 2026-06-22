@@ -1,73 +1,42 @@
-# Dumpit
+# dumpitAI
 
-한 줄 입력으로 메모·할일·일정을 자동 분류하는 스마트 웹앱.
+**기존 dumpit과 별개의 AI 웹앱** — 생각을 입력하면 Gemini가 프로젝트·할일·일정·메모로 자동 분류합니다.
+
+> dumpit(기존)과 Supabase·Vercel·GitHub 저장소가 **완전히 분리**됩니다.  
+> 신규 인프라 설정: **[SETUP.md](./SETUP.md)** ← 여기부터 시작
 
 ## 기술 스택
 
-- **Frontend:** Next.js 15, Tailwind CSS
-- **Backend:** Supabase (Auth + PostgreSQL + RLS)
-- **배포:** Vercel
+- Next.js 15, Tailwind CSS, Supabase, Google Gemini
 
-## 시작하기
-
-### 1. Supabase 설정
-
-1. [Supabase](https://supabase.com)에서 프로젝트 생성
-2. SQL Editor에서 `supabase/migrations/001_initial_schema.sql` 실행
-3. Authentication → Email 활성화
-
-### 2. 환경 변수
+## 빠른 시작
 
 ```bash
-cp .env.example .env.local
-```
+# 1. SETUP.md 따라 Supabase dumpitAI 프로젝트 생성
+# 2. 환경 변수 설정
+cp .env.example .env.local   # 새 Supabase + Gemini 키 입력
 
-`.env.local`에 Supabase URL과 publishable key 입력:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-```
-
-> 신규 프로젝트는 `publishable key`만 제공됩니다. 예전 `anon key`도 동일 변수 자리에 넣으면 됩니다 (`NEXT_PUBLIC_SUPABASE_ANON_KEY`).
-
-### 3. 실행
-
-```bash
 npm install
 npm run dev
 ```
 
-http://localhost:3000 에서 확인
+- 로컬: http://localhost:3000
+- AI Inbox: http://localhost:3000/inbox
 
-## 다른 기기에서 사용하기 (배포)
+## 프로젝트 구조 (dumpit 대비)
 
-공개 URL로 휴대폰·태블릿에서 접속하려면 Vercel에 배포하세요.
-
-**상세 가이드:** [DEPLOY.md](./DEPLOY.md)
-
-요약:
-
-1. Supabase에 마이그레이션 적용 + Auth Redirect URL 설정
-2. GitHub에 코드 push
-3. [Vercel](https://vercel.com)에서 프로젝트 import
-4. 환경 변수 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 설정
-5. 배포된 URL을 휴대폰에서 열기 (홈 화면에 추가 가능)
+| dumpit | dumpitAI |
+|--------|----------|
+| 키워드 자동 분류 | **Gemini AI 분류** |
+| 홈 빠른 입력 | **AI Inbox** (`/inbox`) |
+| 동일 | 메모·할일·일정·보드·여행 |
 
 ## 문서
 
-- [DESIGN.md](./DESIGN.md) — 제품 설계
-- [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) — 개발 계획서
+- **[SETUP.md](./SETUP.md)** — Supabase + Vercel + GitHub 분리 설정
+- [DEPLOY.md](./DEPLOY.md) — Vercel 배포 요약
+- [DESIGN.md](./DESIGN.md) — 제품 설계 (dumpit 기반)
 
-## 주요 기능
+## DB 스키마
 
-- 한 줄 입력 + 키워드 기반 자동 분류 (타입 / 카테고리 / 마감일)
-- 기본 카테고리 10개 (가입 시 자동 생성)
-- 카테고리 CRUD + 키워드 학습
-- Today / 카테고리별 / 완료 뷰
-- Todo·일정 완료 체크
-
-## Cursor 워크스페이스
-
-폴더명이 `snapstory` → `dumpit`으로 변경되었습니다.  
-Cursor에서 **File → Open Folder → dumpit** 으로 폴더를 다시 열어주세요.
+신규 Supabase에 `supabase/schema-agent-full.sql` 한 번 실행 (001~008 포함).

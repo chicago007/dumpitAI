@@ -11,6 +11,7 @@ import {
   Menu,
   Plus,
   Settings,
+  Sparkles,
   StickyNote,
 } from "lucide-react";
 import { SpaceSwitcher } from "@/components/layout/space-switcher";
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { APP_NAME } from "@/lib/app-brand";
 import { ENTRY_TYPE_THEMES } from "@/lib/entry-type-theme";
 import type { SidebarCounts } from "@/actions/entries";
 import type { Space } from "@/lib/spaces";
@@ -130,6 +132,11 @@ function SidebarContent({
   const primaryItems: NavItem[] = [
     { href: "/", label: "입력", icon: <Plus className="h-4 w-4" /> },
     {
+      href: "/inbox",
+      label: "AI Inbox",
+      icon: <Sparkles className="h-4 w-4" />,
+    },
+    {
       href: "/today",
       label: "오늘",
       icon: <LayoutList className="h-4 w-4" />,
@@ -172,7 +179,7 @@ function SidebarContent({
           onClick={onNavigate}
           className="text-xl font-bold tracking-tight text-foreground"
         >
-          Dumpit
+          {APP_NAME}
         </Link>
       </div>
 
@@ -261,7 +268,7 @@ export function Sidebar({
           <Menu className="h-5 w-5" />
         </Button>
         <Link href="/" className="text-base font-bold text-foreground">
-          Dumpit
+          {APP_NAME}
         </Link>
         <div className="ml-auto min-w-0 flex-1 max-w-[200px]">
           <SpaceSwitcher activeSpace={activeSpace} compact />

@@ -1,15 +1,16 @@
 import type { Metadata, Viewport } from "next";
+import { APP_NAME, APP_TAGLINE, APP_TITLE } from "@/lib/app-brand";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Dumpit — 한 줄 입력, 자동 분류",
-  description: "메모·할일·일정을 한 줄로 입력하면 자동으로 분류해 주는 스마트 앱",
+  title: APP_TITLE,
+  description: APP_TAGLINE,
   manifest: "/manifest.webmanifest",
-  applicationName: "Dumpit",
+  applicationName: APP_NAME,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Dumpit",
+    title: APP_NAME,
   },
   icons: {
     icon: "/icon.svg",

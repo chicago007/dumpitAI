@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { APP_NAME, APP_TAGLINE } from "@/lib/app-brand";
 import { hasSupabaseClientEnv } from "@/lib/supabase/env";
 
 function formatAuthError(message: string) {
@@ -83,8 +84,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">Dumpit</h1>
-          <p className="mt-1 text-sm text-slate-500">로그인</p>
+          <h1 className="text-2xl font-bold text-slate-900">{APP_NAME}</h1>
+          <p className="mt-1 text-sm text-slate-500">{APP_TAGLINE}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
