@@ -22,9 +22,9 @@ export function EntryListHeader({
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="mb-1 text-xl font-bold text-slate-800">{title}</h1>
+          <h1 className="mb-1 text-xl font-bold text-foreground">{title}</h1>
           {subtitle && (
-            <p className="text-sm text-slate-500">{subtitle}</p>
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
           )}
         </div>
         {!isAdding && <AddEntryButton onClick={() => setIsAdding(true)} />}

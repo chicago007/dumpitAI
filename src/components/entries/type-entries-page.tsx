@@ -133,7 +133,7 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
           {otherTodos.length > 0 && (
             <section className={groups.length > 0 ? "mt-8" : ""}>
               {groups.length > 0 && (
-                <h2 className="mb-3 text-sm font-semibold text-slate-700">
+                <h2 className="mb-3 text-sm font-semibold text-foreground">
                   다른 할일 ({otherTodos.length})
                 </h2>
               )}
@@ -148,7 +148,7 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
           )}
 
           {groups.length === 0 && otherTodos.length === 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white px-4">
+            <div className="rounded-xl border border-border bg-card px-4">
               <EntryList
                 entries={[]}
                 categories={categoriesResult.data}
@@ -167,11 +167,12 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
           subtitle={`활성 ${entries.length}건`}
           entryType={type}
         />
-        <div className="rounded-xl border border-slate-200 bg-white px-4">
+        <div className="rounded-xl border border-border bg-card p-3">
           <EntryList
             entries={entries}
             categories={categoriesResult.data}
             hideType
+            variant="accent"
           />
         </div>
       </main>
@@ -217,11 +218,11 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
             <CategoryDot color={travelCategory.color} size="md" />
             <Link
               href={`/categories/${travelCategory.id}`}
-              className="text-sm font-semibold text-slate-800 hover:text-slate-600"
+              className="text-sm font-semibold text-foreground hover:text-muted-foreground"
             >
               {travelCategory.name}
             </Link>
-            <span className="text-xs text-slate-400">여행 준비 표</span>
+            <span className="text-xs text-muted-foreground">여행 준비 표</span>
           </div>
           <TravelChecklistTable
             category={travelCategory}
@@ -229,8 +230,8 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
             template={travelTemplate}
           />
           {travelNonTemplateEntries.length > 0 && (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4">
-              <p className="pt-3 text-xs font-medium text-slate-500">
+            <div className="mt-4 rounded-xl border border-border bg-card px-4">
+              <p className="pt-3 text-xs font-medium text-muted-foreground">
                 {travelCategory.name} · 추가 항목
               </p>
               <EntryList
@@ -251,21 +252,21 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
                 <CategoryDot color={category.color} size="md" />
                 <Link
                   href={`/categories/${category.id}`}
-                  className="text-sm font-semibold text-slate-800 hover:text-slate-600"
+                  className="text-sm font-semibold text-foreground hover:text-muted-foreground"
                 >
                   {category.name}
                 </Link>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-muted-foreground">
                   {groupEntries.length}건
                 </span>
               </>
             ) : (
-              <h2 className="text-sm font-semibold text-slate-700">
+              <h2 className="text-sm font-semibold text-foreground">
                 미분류 ({groupEntries.length})
               </h2>
             )}
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white px-4">
+          <div className="rounded-xl border border-border bg-card px-4">
             <EntryList
               entries={groupEntries}
               categories={categoriesResult.data}
@@ -278,7 +279,7 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
       {otherCategoryGroups.length === 0 &&
         !travelCategory &&
         travelChecklistEntries.length === 0 && (
-          <p className="py-8 text-center text-sm text-slate-500">
+          <p className="py-8 text-center text-sm text-muted-foreground">
             체크리스트 항목이 없습니다.
           </p>
         )}
