@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileSpreadsheet, Upload } from "lucide-react";
 import { importChecklistRows } from "@/actions/boards";
+import { readSpreadsheetRows } from "@/lib/checklist-excel-parse";
 import { parseChecklistSheetRows } from "@/lib/checklist-excel";
 import { Button } from "@/components/ui/button";
 
@@ -27,26 +28,17 @@ export function BoardChecklistExcelUpload({
     setSuccess(null);
 
     const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!ext || !["xlsx", "xls", "csv"].includes(ext)) {
-      setError(".xlsx, .xls, .csv 파일만 업로드할 수 있습니다.");
+    if (!ext || !["xlsx", "csv"].includes(ext)) {
+      setError(".xlsx, .csv 파일만 업로드할 수 있습니다.");
       return;
     }
 
     try {
-      const XLSX = await import("xlsx");
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      if (!sheetName) {
-        setError("시트가 비어 있습니다.");
-        return;
-      }
-
-      const sheet = workbook.Sheets[sheetName];
-      const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-        header: 1,
-        defval: "",
-      });
+      const rawRows = await readSpreadsheetRows(
+        buffer,
+        ext as "xlsx" | "csv",
+      );
 
       const parsed = parseChecklistSheetRows(rawRows);
       if (parsed.length === 0) {
@@ -69,8 +61,12 @@ export function BoardChecklistExcelUpload({
           );
         }
       });
-    } catch {
-      setError("파일을 읽지 못했습니다. 형식을 확인해 주세요.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "파일을 읽지 못했습니다. 형식을 확인해 주세요.",
+      );
     }
   }
 
@@ -91,7 +87,7 @@ export function BoardChecklistExcelUpload({
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">엑셀 가져오기</p>
             <p className="text-[11px] text-muted-foreground truncate">
-              카테고리 · 항목 · 예산(선택)
+              카테고리 · 항목 · 예산(선택) — .xlsx, .csv
             </p>
           </div>
         </div>
@@ -109,7 +105,7 @@ export function BoardChecklistExcelUpload({
         <input
           ref={inputRef}
           type="file"
-          accept=".xlsx,.xls,.csv"
+          accept=".xlsx,.csv"
           className="hidden"
           onChange={onInputChange}
         />

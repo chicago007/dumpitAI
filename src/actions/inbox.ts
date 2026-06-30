@@ -19,6 +19,11 @@ import {
   previewToClassification,
 } from "@/lib/inbox-classify";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import {
+  inboxPreviewSchema,
+  inboxTextSchema,
+  parseOrThrow,
+} from "@/lib/validation";
 import type { Category, Space } from "@/lib/types";
 import type { ViewSpace } from "@/lib/spaces";
 import { parseSpaceLinePrefix } from "@/lib/space-input";
@@ -67,18 +72,39 @@ async function insertEntry(
     space: Space;
   },
 ) {
-  const { error } = await supabase.from("entries").insert({
-    user_id: userId,
-    content: input.content,
-    type: input.type,
-    category_id: input.categoryId,
-    board_id: input.boardId,
-    due_at: input.dueAt,
-    status: "active",
-    space: input.space,
-    metadata: {},
-  });
+  const { data, error } = await supabase
+    .from("entries")
+    .insert({
+      user_id: userId,
+      content: input.content,
+      type: input.type,
+      category_id: input.categoryId,
+      board_id: input.boardId,
+      due_at: input.dueAt,
+      status: "active",
+      space: input.space,
+      metadata: {},
+    })
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
+  return data.id as string;
+}
+
+async function rollbackInboxSave(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  boardId: string | null,
+  entryIds: string[],
+) {
+  if (entryIds.length > 0) {
+    await supabase
+      .from("entries")
+      .update({ is_deleted: true })
+      .in("id", entryIds);
+  }
+  if (boardId) {
+    await supabase.rpc("delete_board_atomic", { p_board_id: boardId });
+  }
 }
 
 function countCreated(
@@ -179,15 +205,13 @@ export async function quickSaveInboxInput(
 export async function previewInboxInput(
   text: string,
 ): Promise<InboxPreviewResult> {
-  const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
-  const trimmed = text.trim();
-  if (!trimmed) throw new Error("입력 내용이 비어 있습니다.");
+  const trimmed = parseOrThrow(inboxTextSchema, text);
 
   const viewSpace = await getActiveSpace();
-  const result = await buildInboxPreview(trimmed, viewSpace);
+  const result = await buildInboxPreview(trimmed, viewSpace, user.id);
   return result;
 }
 
@@ -198,6 +222,11 @@ export async function saveInboxPreview(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
+
+  const validated = parseOrThrow(
+    inboxPreviewSchema,
+    preview,
+  ) as InboxPreviewResult;
 
   const viewSpace = await getActiveSpace();
   const categoriesBySpace = await loadCategoriesBySpace(supabase);
@@ -213,111 +242,120 @@ export async function saveInboxPreview(
     return cat;
   }
 
-  const projectSpace = resolveProjectSpace(preview, viewSpace);
-
   let boardId: string | null = null;
-  if (preview.project && projectSpace) {
-    const projectType = inferProjectType(preview.project);
-    const defaultCategory = defaultCategoryFor(projectSpace);
-    const useTemplateItems =
-      preview.isProjectBlock && preview.items.length === 0;
+  const createdEntryIds: string[] = [];
 
-    boardId = await createBoardWithWizard({
-      name: preview.project,
-      space: projectSpace,
-      projectType,
-      defaultCategoryId: defaultCategory.id,
-      skipItems: !useTemplateItems,
-    });
-  }
+  try {
+    const projectSpace = resolveProjectSpace(validated, viewSpace);
 
-  const created = countCreated(preview.items);
+    if (validated.project && projectSpace) {
+      const projectType = inferProjectType(validated.project);
+      const defaultCategory = defaultCategoryFor(projectSpace);
+      const useTemplateItems =
+        validated.isProjectBlock && validated.items.length === 0;
 
-  if (preview.isProjectBlock && boardId && projectSpace) {
-    const board = await getBoard(boardId);
-    const metadata = (board?.metadata ?? {}) as {
-      checklistGroups?: { id: string }[];
-    };
-    const defaultGroupId = metadata.checklistGroups?.[0]?.id;
-    const defaultCategory = defaultCategoryFor(projectSpace);
-
-    for (const item of preview.items) {
-      await applyBoardPreviewItem(
-        boardId,
-        item,
-        defaultCategory.id,
-        defaultGroupId,
-      );
+      boardId = await createBoardWithWizard({
+        name: validated.project,
+        space: projectSpace,
+        projectType,
+        defaultCategoryId: defaultCategory.id,
+        skipItems: !useTemplateItems,
+      });
     }
-  } else {
-    for (const item of preview.items) {
-      const defaultCategory = defaultCategoryFor(item.targetSpace);
 
-      if (item.kind === "todo") {
-        await insertEntry(supabase, user.id, {
-          content: item.content,
-          type: "todo",
-          categoryId: defaultCategory.id,
-          boardId:
-            boardId && item.targetSpace === projectSpace ? boardId : null,
-          dueAt: item.dueAt,
-          space: item.targetSpace,
-        });
-      } else if (item.kind === "schedule") {
-        await insertEntry(supabase, user.id, {
-          content: item.content,
-          type: "schedule",
-          categoryId: defaultCategory.id,
-          boardId:
-            boardId && item.targetSpace === projectSpace ? boardId : null,
-          dueAt: item.dueAt,
-          space: item.targetSpace,
-        });
-      } else if (item.kind === "memo") {
-        await insertEntry(supabase, user.id, {
-          content: item.content,
-          type: "memo",
-          categoryId: defaultCategory.id,
-          boardId:
-            boardId && item.targetSpace === projectSpace ? boardId : null,
-          dueAt: null,
-          space: item.targetSpace,
-        });
-      } else if (
-        boardId &&
-        item.targetSpace === projectSpace
-      ) {
-        await applyBoardPreviewItem(boardId, item, defaultCategory.id);
+    const created = countCreated(validated.items);
+
+    if (validated.isProjectBlock && boardId && projectSpace) {
+      const board = await getBoard(boardId);
+      const metadata = (board?.metadata ?? {}) as {
+        checklistGroups?: { id: string }[];
+      };
+      const defaultGroupId = metadata.checklistGroups?.[0]?.id;
+      const defaultCategory = defaultCategoryFor(projectSpace);
+
+      for (const item of validated.items) {
+        await applyBoardPreviewItem(
+          boardId,
+          item,
+          defaultCategory.id,
+          defaultGroupId,
+        );
+      }
+    } else {
+      for (const item of validated.items) {
+        const defaultCategory = defaultCategoryFor(item.targetSpace);
+
+        if (item.kind === "todo") {
+          const id = await insertEntry(supabase, user.id, {
+            content: item.content,
+            type: "todo",
+            categoryId: defaultCategory.id,
+            boardId:
+              boardId && item.targetSpace === projectSpace ? boardId : null,
+            dueAt: item.dueAt,
+            space: item.targetSpace,
+          });
+          createdEntryIds.push(id);
+        } else if (item.kind === "schedule") {
+          const id = await insertEntry(supabase, user.id, {
+            content: item.content,
+            type: "schedule",
+            categoryId: defaultCategory.id,
+            boardId:
+              boardId && item.targetSpace === projectSpace ? boardId : null,
+            dueAt: item.dueAt,
+            space: item.targetSpace,
+          });
+          createdEntryIds.push(id);
+        } else if (item.kind === "memo") {
+          const id = await insertEntry(supabase, user.id, {
+            content: item.content,
+            type: "memo",
+            categoryId: defaultCategory.id,
+            boardId:
+              boardId && item.targetSpace === projectSpace ? boardId : null,
+            dueAt: null,
+            space: item.targetSpace,
+          });
+          createdEntryIds.push(id);
+        } else if (boardId && item.targetSpace === projectSpace) {
+          await applyBoardPreviewItem(boardId, item, defaultCategory.id);
+        }
       }
     }
+
+    const classification = previewToClassification(validated);
+    const logSpace: Space =
+      projectSpace ??
+      (viewSpace !== "all"
+        ? viewSpace
+        : (validated.items[0]?.targetSpace ?? "personal"));
+
+    const { data: log, error: logError } = await supabase
+      .from("inbox_logs")
+      .insert({
+        user_id: user.id,
+        original_text: validated.originalText,
+        ai_result: classification as unknown as Record<string, unknown>,
+        space: logSpace,
+      })
+      .select("id")
+      .single();
+
+    if (logError) throw new Error(logError.message);
+
+    revalidateAppData(boardId);
+
+    return {
+      logId: log.id,
+      classification,
+      boardId,
+      created,
+    };
+  } catch (err) {
+    await rollbackInboxSave(supabase, boardId, createdEntryIds);
+    throw err;
   }
-
-  const classification = previewToClassification(preview);
-  const logSpace: Space =
-    projectSpace ??
-    (viewSpace !== "all" ? viewSpace : preview.items[0]?.targetSpace ?? "personal");
-
-  const { data: log, error: logError } = await supabase
-    .from("inbox_logs")
-    .insert({
-      user_id: user.id,
-      original_text: preview.originalText,
-      ai_result: classification as unknown as Record<string, unknown>,
-      space: logSpace,
-    })
-    .select("id")
-    .single();
-
-  if (logError) throw new Error(logError.message);
-
-  revalidateAppData(boardId);
-
-  return {
-    logId: log.id,
-    classification,
-    boardId,
-    created,
-  };
 }
 
 /** @deprecated previewInboxInput + saveInboxPreview 사용 */

@@ -3,6 +3,7 @@
 import { getActiveSpace } from "@/actions/space";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { revalidateBoardPaths } from "@/lib/revalidate";
+import { createBoardWizardSchema, parseOrThrow } from "@/lib/validation";
 import {
   appendToGroupOrder,
   getChecklistItemOrder,
@@ -357,7 +358,7 @@ export async function createBoard(input: {
   return id;
 }
 
-export async function createBoardWithWizard(input: {
+export async function createBoardWithWizard(rawInput: {
   name: string;
   color?: string;
   space?: Space;
@@ -371,6 +372,7 @@ export async function createBoardWithWizard(input: {
   defaultCategoryId: string;
   skipItems?: boolean;
 }) {
+  const input = parseOrThrow(createBoardWizardSchema, rawInput);
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
@@ -379,6 +381,17 @@ export async function createBoardWithWizard(input: {
   const space: Space = viewSpace === "all" ? "personal" : viewSpace;
   const name = input.name.trim();
   if (!name) throw new Error("보드 이름을 입력해 주세요.");
+
+  const { data: category } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("id", input.defaultCategoryId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!category && !input.skipItems) {
+    throw new Error("유효하지 않은 카테고리입니다.");
+  }
 
   const template = getProjectTemplate(input.projectType);
   const budgetTotal = input.budgetTotal ?? 0;
@@ -438,63 +451,68 @@ export async function createBoardWithWizard(input: {
 
   const boardId = board.id as string;
 
-  if (!input.skipItems && input.defaultCategoryId) {
-    const inserts: {
-      user_id: string;
-      content: string;
-      type: string;
-      category_id: string;
-      board_id: string;
-      status: string;
-      space: Space;
-      metadata: Record<string, unknown>;
-    }[] = [];
+  try {
+    if (!input.skipItems && input.defaultCategoryId) {
+      const inserts: {
+        user_id: string;
+        content: string;
+        type: string;
+        category_id: string;
+        board_id: string;
+        status: string;
+        space: Space;
+        metadata: Record<string, unknown>;
+      }[] = [];
 
-    for (let i = 0; i < template.checklistGroups.length; i++) {
-      const group = template.checklistGroups[i];
-      const groupId = checklistGroups[i]?.id;
-      if (!groupId) continue;
-      for (const label of group.items) {
-        inserts.push({
-          user_id: user.id,
-          content: label,
-          type: "todo",
-          category_id: input.defaultCategoryId,
-          board_id: boardId,
-          status: "active",
-          space,
-          metadata: { checklistGroupId: groupId, fromBoardTemplate: true },
-        });
+      for (let i = 0; i < template.checklistGroups.length; i++) {
+        const group = template.checklistGroups[i];
+        const groupId = checklistGroups[i]?.id;
+        if (!groupId) continue;
+        for (const label of group.items) {
+          inserts.push({
+            user_id: user.id,
+            content: label,
+            type: "todo",
+            category_id: input.defaultCategoryId,
+            board_id: boardId,
+            status: "active",
+            space,
+            metadata: { checklistGroupId: groupId, fromBoardTemplate: true },
+          });
+        }
+      }
+
+      if (inserts.length > 0) {
+        const { data: inserted, error: insertError } = await supabase
+          .from("entries")
+          .insert(inserts)
+          .select("id, metadata");
+        if (insertError) throw new Error(insertError.message);
+
+        const checklistItemOrder: Record<string, string[]> = {};
+        for (const entry of inserted ?? []) {
+          const gid = (entry.metadata as Record<string, unknown>)
+            .checklistGroupId;
+          if (typeof gid !== "string") continue;
+          const list = checklistItemOrder[gid] ?? [];
+          list.push(entry.id);
+          checklistItemOrder[gid] = list;
+        }
+
+        if (Object.keys(checklistItemOrder).length > 0) {
+          const { error: orderError } = await supabase
+            .from("boards")
+            .update({
+              metadata: { ...metadata, checklistItemOrder },
+            })
+            .eq("id", boardId);
+          if (orderError) throw new Error(orderError.message);
+        }
       }
     }
-
-    if (inserts.length > 0) {
-      const { data: inserted, error: insertError } = await supabase
-        .from("entries")
-        .insert(inserts)
-        .select("id, metadata");
-      if (insertError) throw new Error(insertError.message);
-
-      const checklistItemOrder: Record<string, string[]> = {};
-      for (const entry of inserted ?? []) {
-        const gid = (entry.metadata as Record<string, unknown>)
-          .checklistGroupId;
-        if (typeof gid !== "string") continue;
-        const list = checklistItemOrder[gid] ?? [];
-        list.push(entry.id);
-        checklistItemOrder[gid] = list;
-      }
-
-      if (Object.keys(checklistItemOrder).length > 0) {
-        const { error: orderError } = await supabase
-          .from("boards")
-          .update({
-            metadata: { ...metadata, checklistItemOrder },
-          })
-          .eq("id", boardId);
-        if (orderError) throw new Error(orderError.message);
-      }
-    }
+  } catch (err) {
+    await supabase.rpc("delete_board_atomic", { p_board_id: boardId });
+    throw err;
   }
 
   revalidateBoardPaths(boardId);
@@ -1932,19 +1950,9 @@ export async function deleteBoard(id: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
-  const { error: unlinkError } = await supabase
-    .from("entries")
-    .update({ board_id: null })
-    .eq("board_id", id)
-    .eq("user_id", user.id);
-
-  if (unlinkError) throw new Error(unlinkError.message);
-
-  const { error } = await supabase
-    .from("boards")
-    .update({ is_deleted: true })
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const { error } = await supabase.rpc("delete_board_atomic", {
+    p_board_id: id,
+  });
 
   if (error) throw new Error(error.message);
   revalidateBoardPaths(id);

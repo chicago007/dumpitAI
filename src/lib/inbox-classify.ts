@@ -249,10 +249,11 @@ function fromInboxClassification(
 
 async function classifyInboxLine(
   line: string,
+  userId?: string,
 ): Promise<AiInboxClassification> {
   let raw: AiInboxClassification;
   try {
-    raw = await classifyWithAI(line);
+    raw = await classifyWithAI(line, userId);
   } catch {
     raw = classifyWithRules(line);
   }
@@ -263,8 +264,10 @@ async function classifyLineForPreview(
   line: string,
   isProjectBlock: boolean,
   viewSpace: ViewSpace,
+  userId?: string,
 ): Promise<{
   items: InboxPreviewItem[];
+  classification?: AiInboxClassification;
   spaceInferred: boolean;
   inferSource?: SpaceInferSource;
 }> {
@@ -275,7 +278,7 @@ async function classifyLineForPreview(
   let inferSource: SpaceInferSource | undefined;
 
   if (viewSpace === "all" && !hasPrefix) {
-    const inferred = await inferSpaceForAllView(trimmed);
+    const inferred = await inferSpaceForAllView(trimmed, userId);
     inferredSpace = inferred.space;
     inferSource = inferred.source;
   }
@@ -309,9 +312,10 @@ async function classifyLineForPreview(
     };
   }
 
-  const classification = await classifyInboxLine(body);
+  const classification = await classifyInboxLine(body, userId);
   return {
     items: fromInboxClassification(line, classification, targetSpace),
+    classification,
     spaceInferred,
     inferSource,
   };
@@ -320,6 +324,7 @@ async function classifyLineForPreview(
 export async function buildInboxPreview(
   text: string,
   viewSpace: ViewSpace,
+  userId?: string,
 ): Promise<InboxPreviewResult> {
   const trimmed = text.trim();
   const { explicitProject, lines } = parseInboxBlocks(trimmed);
@@ -342,13 +347,19 @@ export async function buildInboxPreview(
     };
   }
 
+  const lineClassifications: AiInboxClassification[] = [];
+
   for (const line of targets) {
     const lineResult = await classifyLineForPreview(
       line,
       isProjectBlock,
       viewSpace,
+      userId,
     );
     items.push(...lineResult.items);
+    if (lineResult.classification) {
+      lineClassifications.push(lineResult.classification);
+    }
 
     if (lineResult.spaceInferred) {
       needsSpaceConfirm = true;
@@ -367,14 +378,10 @@ export async function buildInboxPreview(
     }
   }
 
-  if (!explicitProject && targets.length > 1) {
-    const parts: AiInboxClassification[] = [];
-    for (const line of targets) {
-      parts.push(await classifyInboxLine(line));
-    }
+  if (!explicitProject && targets.length > 1 && lineClassifications.length > 0) {
     const merged = finalizeInboxClassification(
       targets,
-      mergeClassifications(parts),
+      mergeClassifications(lineClassifications),
     );
     if (merged.project) inferredProject = merged.project;
   }

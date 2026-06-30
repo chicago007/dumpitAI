@@ -109,6 +109,34 @@ export function seoulTimeInputFromIso(iso: string | null | undefined) {
   return `${hour}:${minute}`;
 }
 
+export function getSeoulTodayKey(date = new Date()) {
+  return getSeoulDateKeyFromIso(date.toISOString());
+}
+
+/** 서울 기준 하루의 시작·끝 (UTC ISO) */
+export function getSeoulDayBounds(date = new Date()) {
+  const startKey = getSeoulTodayKey(date);
+  return {
+    startKey,
+    start: new Date(`${startKey}T00:00:00+09:00`),
+    end: new Date(`${startKey}T23:59:59.999+09:00`),
+  };
+}
+
+/** 서울 오늘 00:00부터 N일 후 23:59:59 */
+export function getSeoulDayRangeFromToday(days: number, date = new Date()) {
+  const { start, startKey } = getSeoulDayBounds(date);
+  const endDate = new Date(start);
+  endDate.setUTCDate(endDate.getUTCDate() + Math.max(0, days - 1));
+  const endParts = getSeoulDateParts(endDate);
+  const endKey = seoulDateKey(endParts.year, endParts.month0, endParts.day);
+  return {
+    start,
+    end: new Date(`${endKey}T23:59:59.999+09:00`),
+    startKey,
+    endKey,
+  };
+}
 export function formatSeoulDayHeader(dayKey: string) {
   const [y, m, d] = dayKey.split("-").map(Number);
   return seoulCalendarDate(y, m - 1, d).toLocaleDateString("ko-KR", {

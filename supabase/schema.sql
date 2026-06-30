@@ -226,15 +226,6 @@ ALTER TABLE entries
 CREATE INDEX IF NOT EXISTS idx_entries_board ON entries(board_id)
   WHERE is_deleted = false;
 
--- Frequently used entry filters (sidebar counts, type listings)
-CREATE INDEX IF NOT EXISTS idx_entries_user_type_status
-  ON entries(user_id, type, status)
-  WHERE is_deleted = false;
-
-CREATE INDEX IF NOT EXISTS idx_entries_board_null
-  ON entries(user_id, created_at DESC)
-  WHERE is_deleted = false AND board_id IS NULL;
-
 ALTER TABLE boards ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users manage own boards" ON boards;
@@ -330,6 +321,8 @@ GRANT EXECUTE ON FUNCTION public.seed_default_categories() TO service_role;
 GRANT EXECUTE ON FUNCTION public.seed_default_categories() TO supabase_auth_admin;
 
 -- supabase/migrations/009_appearance_theme.sql
+-- User appearance / background theme preference
+
 ALTER TABLE user_settings
   ADD COLUMN IF NOT EXISTS appearance_theme TEXT NOT NULL DEFAULT 'default'
     CHECK (appearance_theme IN (
@@ -339,4 +332,59 @@ ALTER TABLE user_settings
       'solarized-dark',
       'midnight'
     ));
+
+-- supabase/migrations/010_query_indexes.sql
+-- Frequently used entry filters (sidebar counts, type listings)
+
+CREATE INDEX IF NOT EXISTS idx_entries_user_type_status
+  ON entries(user_id, type, status)
+  WHERE is_deleted = false;
+
+CREATE INDEX IF NOT EXISTS idx_entries_board_null
+  ON entries(user_id, created_at DESC)
+  WHERE is_deleted = false AND board_id IS NULL;
+
+-- supabase/migrations/011_ai_usage_and_board_rpc.sql
+-- AI daily usage tracking + atomic board delete
+
+CREATE TABLE IF NOT EXISTS ai_usage_daily (
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  usage_date DATE NOT NULL,
+  call_count INT NOT NULL DEFAULT 0 CHECK (call_count >= 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, usage_date)
+);
+
+ALTER TABLE ai_usage_daily ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own ai_usage_daily" ON ai_usage_daily;
+CREATE POLICY "Users manage own ai_usage_daily"
+  ON ai_usage_daily FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE OR REPLACE FUNCTION delete_board_atomic(p_board_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION '로그인이 필요합니다.';
+  END IF;
+
+  UPDATE entries
+  SET board_id = NULL
+  WHERE board_id = p_board_id
+    AND user_id = auth.uid();
+
+  UPDATE boards
+  SET is_deleted = true
+  WHERE id = p_board_id
+    AND user_id = auth.uid();
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION delete_board_atomic(UUID) TO authenticated;
 

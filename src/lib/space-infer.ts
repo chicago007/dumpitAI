@@ -6,6 +6,7 @@ import {
 import type { Space } from "@/lib/spaces";
 import { inferSpaceFromContent } from "@/lib/spaces";
 import { formatGeminiError } from "@/lib/ai-classify-fallback";
+import { assertAiRateLimit } from "@/lib/ai-rate-limit";
 
 const SPACE_SCHEMA: ResponseSchema = {
   type: SchemaType.OBJECT,
@@ -30,11 +31,17 @@ export function inferSpaceFromRules(text: string): Space | null {
   return null;
 }
 
-async function inferSpaceWithAI(text: string): Promise<Space | null> {
+async function inferSpaceWithAI(
+  text: string,
+  userId?: string,
+): Promise<Space | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   try {
+    if (userId) {
+      await assertAiRateLimit(userId);
+    }
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
@@ -78,11 +85,12 @@ export type SpaceInferSource = "rules" | "ai" | "default";
 
 export async function inferSpaceForAllView(
   text: string,
+  userId?: string,
 ): Promise<{ space: Space; source: SpaceInferSource }> {
   const fromRules = inferSpaceFromRules(text);
   if (fromRules) return { space: fromRules, source: "rules" };
 
-  const fromAi = await inferSpaceWithAI(text);
+  const fromAi = await inferSpaceWithAI(text, userId);
   if (fromAi) return { space: fromAi, source: "ai" };
 
   return { space: "personal", source: "default" };

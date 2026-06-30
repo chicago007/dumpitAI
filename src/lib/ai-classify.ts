@@ -5,6 +5,8 @@ import {
 } from "@google/generative-ai";
 import type { AiInboxClassification } from "./ai-inbox-types";
 import { formatGeminiError } from "./ai-classify-fallback";
+import { assertAiRateLimit } from "@/lib/ai-rate-limit";
+import { getSeoulTodayKey } from "@/lib/dates";
 
 const RESPONSE_SCHEMA: ResponseSchema = {
   type: SchemaType.OBJECT,
@@ -63,7 +65,7 @@ const SYSTEM_PROMPT_BASE = `당신은 한국어 생각 입력을 분류하는 �
 - 행동 동사만으로 할일을 추측하지 마세요. 날짜와 "~까지" 규칙을 우선합니다.`;
 
 function buildSystemPrompt() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSeoulTodayKey();
   return `${SYSTEM_PROMPT_BASE}
 - 오늘 날짜: ${today}
 - 빈 배열은 []로, 프로젝트가 없으면 project는 null입니다.`;
@@ -80,12 +82,6 @@ function getGeminiApiKey() {
 }
 
 function parseClassification(raw: string): AiInboxClassification {
-  const empty: AiInboxClassification = {
-    project: null,
-    todos: [],
-    schedules: [],
-    notes: [],
-  };
   try {
     const parsed = JSON.parse(raw) as AiInboxClassification;
     return {
@@ -101,16 +97,21 @@ function parseClassification(raw: string): AiInboxClassification {
     };
   } catch {
     console.error("[ai-classify] JSON parse failed:", raw.slice(0, 200));
-    return empty;
+    throw new Error("AI 응답 파싱에 실패했습니다.");
   }
 }
 
 export async function classifyWithAI(
   text: string,
+  userId?: string,
 ): Promise<AiInboxClassification> {
   const trimmed = text.trim();
   if (!trimmed) {
     throw new Error("입력 내용이 비어 있습니다.");
+  }
+
+  if (userId) {
+    await assertAiRateLimit(userId);
   }
 
   const modelName = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";

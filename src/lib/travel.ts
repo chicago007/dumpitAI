@@ -77,6 +77,18 @@ export function buildTravelMetadata(
   return meta;
 }
 
+/** 기존 metadata를 유지하면서 여행 편집 필드만 갱신 */
+export function mergeTravelMetadata(
+  existing: Record<string, unknown> | null | undefined,
+  destination: string | null,
+  amount: number | null,
+): Record<string, unknown> {
+  return {
+    ...(existing ?? {}),
+    ...buildTravelMetadata(destination, amount),
+  };
+}
+
 export function parseDestination(content: string): string | null {
   const sorted = [...TRAVEL_DESTINATIONS].sort((a, b) => b.length - a.length);
 

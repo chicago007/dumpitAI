@@ -6,7 +6,9 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { revalidateEntryPaths } from "@/lib/revalidate";
 import type { CreateEntryInput, EntryType, Space, UpdateEntryInput } from "@/lib/types";
 import { getDefaultCategoryNameForSpace, getEntrySpace, type ViewSpace } from "@/lib/spaces";
-import { buildTravelMetadata } from "@/lib/travel";
+import { getSeoulDayBounds } from "@/lib/dates";
+import { buildTravelMetadata, mergeTravelMetadata } from "@/lib/travel";
+import { createEntrySchema, parseOrThrow, updateEntrySchema } from "@/lib/validation";
 import {
   getTravelPlanId,
   isTravelPlanEntry,
@@ -91,10 +93,7 @@ export async function getEntries(filters?: {
     query = query.eq("board_id", filters.boardId);
   }
   if (filters?.today) {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
+    const { start, end } = getSeoulDayBounds();
     query = query
       .eq("status", "active")
       .gte("due_at", start.toISOString())
@@ -120,10 +119,7 @@ export async function getEntriesCompletedToday(space?: ViewSpace) {
   const supabase = await createClient();
   const viewSpace = space ?? (await getActiveSpace());
 
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
+  const { start, end } = getSeoulDayBounds();
 
   let query = supabase
     .from("entries")
@@ -179,10 +175,7 @@ async function countEntries(
     query = query.eq("type", filters.type);
   }
   if (filters.today) {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
+    const { start, end } = getSeoulDayBounds();
     query = query
       .eq("status", "active")
       .gte("due_at", start.toISOString())
@@ -297,6 +290,7 @@ export async function getTravelHintCandidateEntries(space?: ViewSpace) {
 }
 
 export async function createEntry(input: CreateEntryInput) {
+  const parsed = parseOrThrow(createEntrySchema, input);
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
@@ -306,11 +300,12 @@ export async function createEntry(input: CreateEntryInput) {
   const { data: category } = await supabase
     .from("categories")
     .select("space")
-    .eq("id", input.categoryId)
+    .eq("id", parsed.categoryId)
+    .eq("user_id", user.id)
     .single();
 
   const entrySpace =
-    input.space ??
+    parsed.space ??
     (category?.space as Space | undefined) ??
     (viewSpace !== "all" ? viewSpace : null);
 
@@ -320,29 +315,29 @@ export async function createEntry(input: CreateEntryInput) {
 
   const { error } = await supabase.from("entries").insert({
     user_id: user.id,
-    content: input.content.trim(),
-    type: input.type,
-    category_id: input.categoryId,
-    board_id: input.boardId ?? null,
-    due_at: input.dueAt ?? null,
+    content: parsed.content.trim(),
+    type: parsed.type,
+    category_id: parsed.categoryId,
+    board_id: parsed.boardId ?? null,
+    due_at: parsed.dueAt ?? null,
     status: "active",
     space: entrySpace,
     metadata: {
       ...buildTravelMetadata(
-        input.destination ?? null,
-        input.amount ?? null,
+        parsed.destination ?? null,
+        parsed.amount ?? null,
       ),
-      ...(input.metadata ?? {}),
+      ...(parsed.metadata ?? {}),
     },
   });
 
   if (error) throw new Error(error.message);
 
-  if (input.learnKeyword) {
-    const words = input.content.trim().split(/\s+/);
+  if (parsed.learnKeyword) {
+    const words = parsed.content.trim().split(/\s+/);
     const keyword = words.find((w) => w.length >= 2) ?? "";
     if (keyword) {
-      await learnCategoryKeyword(input.categoryId, keyword);
+      await learnCategoryKeyword(parsed.categoryId, keyword);
     }
   }
 
@@ -426,23 +421,37 @@ export async function syncTravelChecklistEntries(travelCategoryId: string) {
 }
 
 export async function updateEntry(input: UpdateEntryInput) {
+  const parsed = parseOrThrow(updateEntrySchema, input);
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
+  const { data: existing, error: fetchError } = await supabase
+    .from("entries")
+    .select("metadata")
+    .eq("id", parsed.id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError || !existing) throw new Error("항목을 찾을 수 없습니다.");
+
+  const metadata = mergeTravelMetadata(
+    existing.metadata as Record<string, unknown>,
+    parsed.destination ?? null,
+    parsed.amount ?? null,
+  );
+
   const { error } = await supabase
     .from("entries")
     .update({
-      content: input.content.trim(),
-      type: input.type,
-      category_id: input.categoryId,
-      due_at: input.dueAt ?? null,
-      metadata: buildTravelMetadata(
-        input.destination ?? null,
-        input.amount ?? null,
-      ),
+      content: parsed.content.trim(),
+      type: parsed.type,
+      category_id: parsed.categoryId,
+      due_at: parsed.dueAt ?? null,
+      metadata,
     })
-    .eq("id", input.id);
+    .eq("id", parsed.id)
+    .eq("user_id", user.id);
 
   if (error) throw new Error(error.message);
   revalidateEntryPaths();

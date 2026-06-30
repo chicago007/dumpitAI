@@ -18,15 +18,11 @@ import { loadCategories, loadEntries } from "@/lib/app-data";
 import { findDetectedTravelEntries } from "@/lib/travel-plan";
 import { VIEW_SPACE_LABELS } from "@/lib/spaces";
 import { TRAVEL_CATEGORY_NAME } from "@/lib/travel";
+import { getSeoulDayRangeFromToday } from "@/lib/dates";
 import type { Entry } from "@/lib/types";
 
 function getWeekRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 7);
-  end.setHours(23, 59, 59, 999);
-  return { start, end };
+  return getSeoulDayRangeFromToday(7);
 }
 
 export default async function HomePage({
