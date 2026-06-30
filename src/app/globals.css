@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  :root,
+  [data-theme="default"] {
     --background: 240 6% 97%;
     --foreground: 240 6% 10%;
     --card: 0 0% 100%;
@@ -24,6 +25,95 @@
     --input: 240 6% 90%;
     --ring: 211 100% 50%;
     --radius: 0.75rem;
+  }
+
+  [data-theme="white"] {
+    --background: 0 0% 100%;
+    --foreground: 240 6% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 10%;
+    --primary: 211 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 97%;
+    --secondary-foreground: 240 6% 10%;
+    --muted: 240 5% 97%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 211 100% 96%;
+    --accent-foreground: 211 100% 40%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 92%;
+    --input: 240 6% 92%;
+    --ring: 211 100% 50%;
+  }
+
+  [data-theme="warm"] {
+    --background: 40 33% 98%;
+    --foreground: 30 10% 15%;
+    --card: 40 40% 99%;
+    --card-foreground: 30 10% 15%;
+    --popover: 40 40% 99%;
+    --popover-foreground: 30 10% 15%;
+    --primary: 25 90% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 35 30% 95%;
+    --secondary-foreground: 30 10% 15%;
+    --muted: 35 25% 94%;
+    --muted-foreground: 30 8% 42%;
+    --accent: 35 60% 93%;
+    --accent-foreground: 25 70% 38%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 35 20% 88%;
+    --input: 35 20% 88%;
+    --ring: 25 90% 48%;
+  }
+
+  /* Ethan Schoonover Solarized Dark — base03/base02, 본문 85% 밝기 */
+  [data-theme="solarized-dark"] {
+    --background: 193 100% 10.5%;
+    --foreground: 180 10% 85%;
+    --card: 192 64% 14.5%;
+    --card-foreground: 180 10% 85%;
+    --popover: 192 64% 14.5%;
+    --popover-foreground: 180 10% 85%;
+    --primary: 205 69% 55%;
+    --primary-foreground: 193 100% 10.5%;
+    --secondary: 192 50% 18%;
+    --secondary-foreground: 180 10% 85%;
+    --muted: 192 50% 18%;
+    --muted-foreground: 180 8% 75%;
+    --accent: 175 58% 40%;
+    --accent-foreground: 180 10% 90%;
+    --destructive: 1 71% 58%;
+    --destructive-foreground: 180 10% 95%;
+    --border: 195 12% 32%;
+    --input: 195 12% 32%;
+    --ring: 205 69% 55%;
+  }
+
+  [data-theme="midnight"] {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 96%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 96%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 20%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 20%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 24%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 25% 24%;
+    --input: 217 25% 24%;
+    --ring: 217 91% 60%;
   }
 
   * {

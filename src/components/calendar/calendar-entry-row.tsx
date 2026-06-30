@@ -16,7 +16,11 @@ export function CalendarEntryRow({ entry }: { entry: Entry }) {
   }
 
   return (
-    <div className="flex items-start gap-1">
+    <div
+      className="flex items-start gap-1"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
       <Checkbox
         size="sm"
         checked={isDone}
@@ -28,7 +32,9 @@ export function CalendarEntryRow({ entry }: { entry: Entry }) {
 
       <p
         className={`min-w-0 flex-1 break-words text-[10px] leading-snug sm:text-[11px] ${
-          isDone ? "text-slate-400 line-through" : "text-slate-800"
+          isDone
+            ? "text-muted-foreground line-through"
+            : "text-foreground"
         }`}
         title={entry.content}
       >

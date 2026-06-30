@@ -1,18 +1,13 @@
-import Link from "next/link";
 import { SetupNotice } from "@/components/setup/setup-notice";
-import { CalendarEntryRow } from "@/components/calendar/calendar-entry-row";
+import { CalendarView } from "@/components/calendar/calendar-view";
 import { getActiveSpace } from "@/actions/space";
 import { getEntriesByDueRange } from "@/actions/entries";
-import { loadCategories } from "@/lib/app-data";
+import { loadCategories, loadEntries } from "@/lib/app-data";
 import {
-  addSeoulMonths,
-  buildSeoulCalendarCells,
   getSeoulDateKeyFromIso,
   getSeoulDateParts,
   getSeoulMonthRange,
-  seoulCalendarDate,
 } from "@/lib/dates";
-import { isKoreanHoliday } from "@/lib/korean-holidays";
 import type { Entry } from "@/lib/types";
 import { isSchemaSetupError } from "@/lib/supabase/errors";
 
@@ -67,114 +62,40 @@ export default async function CalendarPage({
     throw error;
   }
 
-  const byDay = new Map<string, Entry[]>();
+  const entriesByDay: Record<string, Entry[]> = {};
   for (const entry of entries) {
     const key = getCalendarDayKey(entry);
     if (!key) continue;
-    const list = byDay.get(key) ?? [];
+    const list = entriesByDay[key] ?? [];
     list.push(entry);
-    byDay.set(key, list);
+    entriesByDay[key] = list;
   }
 
-  const cells = buildSeoulCalendarCells(year, month0);
-  const prev = addSeoulMonths(year, month0, -1);
-  const next = addSeoulMonths(year, month0, 1);
-
-  const monthLabel = seoulCalendarDate(year, month0, 1).toLocaleDateString(
-    "ko-KR",
-    { timeZone: "Asia/Seoul", month: "long" },
-  );
+  const todoResult = await loadEntries({
+    type: "todo",
+    status: "active",
+    space: activeSpace,
+  });
+  const todos = todoResult.ok
+    ? [...todoResult.data].sort((a, b) => {
+        if (!a.due_at && !b.due_at) return 0;
+        if (!a.due_at) return 1;
+        if (!b.due_at) return -1;
+        return a.due_at.localeCompare(b.due_at);
+      })
+    : [];
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">달력</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {monthLabel} {year} · 완료 항목 포함
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-              href={`/calendar?year=${prev.year}&month=${prev.month0 + 1}`}
-            >
-              이전
-            </Link>
-            {!isCurrentMonth && (
-              <Link
-                className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
-                href="/calendar"
-              >
-                오늘
-              </Link>
-            )}
-            <Link
-              className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-              href={`/calendar?year=${next.year}&month=${next.month0 + 1}`}
-            >
-              다음
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-7 gap-px rounded-lg border border-slate-200 bg-slate-200 text-center text-xs">
-          <div className="bg-white px-1 py-2 font-medium text-slate-500">월</div>
-          <div className="bg-white px-1 py-2 font-medium text-slate-500">화</div>
-          <div className="bg-white px-1 py-2 font-medium text-slate-500">수</div>
-          <div className="bg-white px-1 py-2 font-medium text-slate-500">목</div>
-          <div className="bg-white px-1 py-2 font-medium text-slate-500">금</div>
-          <div className="bg-white px-1 py-2 font-medium text-blue-600">토</div>
-          <div className="bg-white px-1 py-2 font-medium text-red-600">일</div>
-        </div>
-
-        <div className="mt-px grid grid-cols-7 gap-px rounded-lg border border-slate-200 bg-slate-200">
-          {cells.map((cell, index) => {
-            const colIndex = index % 7;
-            const isSaturday = colIndex === 5;
-            const isSunday = colIndex === 6;
-            const dayEntries = (byDay.get(cell.key) ?? []).sort((a, b) => {
-              if (a.status !== b.status) {
-                return a.status === "done" ? 1 : -1;
-              }
-              const aDate = a.due_at ?? a.completed_at ?? "";
-              const bDate = b.due_at ?? b.completed_at ?? "";
-              return aDate.localeCompare(bDate);
-            });
-            const cellDate = seoulCalendarDate(
-              cell.parts.year,
-              cell.parts.month0,
-              cell.parts.day,
-            );
-
-            let dayColor = "text-slate-900";
-            if (!cell.inMonth) {
-              dayColor = "text-slate-400";
-            } else if (isKoreanHoliday(cellDate) || isSunday) {
-              dayColor = "text-red-600";
-            } else if (isSaturday) {
-              dayColor = "text-blue-600";
-            }
-
-            return (
-              <div
-                key={cell.key}
-                className={`min-h-[88px] min-w-0 bg-white p-1 sm:min-h-[100px] sm:p-1.5 ${
-                  cell.inMonth ? "" : "bg-slate-50"
-                } ${cell.key === todayKey ? "ring-2 ring-inset ring-slate-900" : ""}`}
-              >
-                <div className={`text-xs font-semibold sm:text-sm ${dayColor}`}>
-                  {cell.parts.day}
-                </div>
-                <div className="mt-1 space-y-1">
-                  {dayEntries.map((entry) => (
-                    <CalendarEntryRow key={entry.id} entry={entry} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <CalendarView
+        year={year}
+        month0={month0}
+        todayKey={todayKey}
+        isCurrentMonth={isCurrentMonth}
+        entriesByDay={entriesByDay}
+        categories={categoriesResult.data}
+        todos={todos}
+      />
     </main>
   );
 }

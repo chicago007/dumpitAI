@@ -1,11 +1,15 @@
 import { SettingsClient } from "@/components/settings/settings-client";
 import { SetupNotice } from "@/components/setup/setup-notice";
+import { getAppearanceTheme } from "@/actions/appearance";
 import { getActiveSpace } from "@/actions/space";
 import { loadCategories } from "@/lib/app-data";
 import { VIEW_SPACE_LABELS } from "@/lib/spaces";
 
 export default async function SettingsPage() {
-  const activeSpace = await getActiveSpace();
+  const [activeSpace, appearanceTheme] = await Promise.all([
+    getActiveSpace(),
+    getAppearanceTheme(),
+  ]);
   const categoriesResult = await loadCategories(activeSpace);
 
   if (!categoriesResult.ok) {
@@ -14,11 +18,15 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-bold text-slate-800">설정</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        {VIEW_SPACE_LABELS[activeSpace]} 공간의 카테고리를 추가·수정·삭제할 수 있습니다.
+      <h1 className="mb-1 text-xl font-bold text-foreground">설정</h1>
+      <p className="mb-6 text-sm text-muted-foreground">
+        {VIEW_SPACE_LABELS[activeSpace]} 공간의 카테고리를 추가·수정·삭제할 수
+        있습니다.
       </p>
-      <SettingsClient categories={categoriesResult.data} />
+      <SettingsClient
+        categories={categoriesResult.data}
+        appearanceTheme={appearanceTheme}
+      />
     </main>
   );
 }

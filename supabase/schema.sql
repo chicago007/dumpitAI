@@ -320,3 +320,14 @@ CREATE TRIGGER on_auth_user_created
 GRANT EXECUTE ON FUNCTION public.seed_default_categories() TO service_role;
 GRANT EXECUTE ON FUNCTION public.seed_default_categories() TO supabase_auth_admin;
 
+-- supabase/migrations/009_appearance_theme.sql
+ALTER TABLE user_settings
+  ADD COLUMN IF NOT EXISTS appearance_theme TEXT NOT NULL DEFAULT 'default'
+    CHECK (appearance_theme IN (
+      'default',
+      'white',
+      'warm',
+      'solarized-dark',
+      'midnight'
+    ));
+

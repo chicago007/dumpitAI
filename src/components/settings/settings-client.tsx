@@ -2,20 +2,26 @@
 
 import { useState, useTransition } from "react";
 import type { Category } from "@/lib/types";
+import type { AppearanceThemeId } from "@/lib/appearance-themes";
 import {
   createCategory,
   updateCategory,
   deleteCategory,
 } from "@/actions/categories";
+import { AppearancePicker } from "@/components/settings/appearance-picker";
 import { CategoryDot } from "@/components/ui/category-dot";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 interface SettingsClientProps {
   categories: Category[];
+  appearanceTheme: AppearanceThemeId;
 }
 
-export function SettingsClient({ categories }: SettingsClientProps) {
+export function SettingsClient({
+  categories,
+  appearanceTheme,
+}: SettingsClientProps) {
   const router = useRouter();
   const [editing, setEditing] = useState<Category | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -45,22 +51,24 @@ export function SettingsClient({ categories }: SettingsClientProps) {
 
   return (
     <div className="space-y-6">
+      <AppearancePicker activeTheme={appearanceTheme} />
+
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">내 카테고리</h2>
+          <h2 className="text-sm font-semibold text-foreground">내 카테고리</h2>
           <button
             type="button"
             onClick={() => {
               setIsAdding(true);
               setEditing(null);
             }}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
           >
             + 추가
           </button>
         </div>
 
-        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+        <ul className="divide-y divide-border rounded-xl border border-border bg-card">
           {categories.map((cat) => (
             <li
               key={cat.id}
@@ -68,10 +76,10 @@ export function SettingsClient({ categories }: SettingsClientProps) {
             >
               <CategoryDot color={cat.color} size="md" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-800">
+                <p className="text-sm font-medium text-foreground">
                   {cat.name}
                 </p>
-                <p className="truncate text-xs text-slate-500">
+                <p className="truncate text-xs text-muted-foreground">
                   {(cat.keywords ?? []).join(", ") || "키워드 없음"}
                 </p>
               </div>
@@ -81,7 +89,7 @@ export function SettingsClient({ categories }: SettingsClientProps) {
                   setEditing(cat);
                   setIsAdding(false);
                 }}
-                className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
+                className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
               >
                 편집
               </button>
@@ -90,7 +98,7 @@ export function SettingsClient({ categories }: SettingsClientProps) {
                   type="button"
                   onClick={() => handleDelete(cat.id, cat.name)}
                   disabled={isPending}
-                  className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                  className="rounded px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
                 >
                   삭제
                 </button>
@@ -112,17 +120,17 @@ export function SettingsClient({ categories }: SettingsClientProps) {
       )}
 
       {error && (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">계정</h2>
+      <section className="rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-3 text-sm font-semibold text-foreground">계정</h2>
         <button
           type="button"
           onClick={handleLogout}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
         >
           로그아웃
         </button>
@@ -182,9 +190,9 @@ function CategoryForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border border-slate-200 bg-white p-4 space-y-3"
+      className="space-y-3 rounded-xl border border-border bg-card p-4"
     >
-      <h3 className="text-sm font-semibold text-slate-700">
+      <h3 className="text-sm font-semibold text-foreground">
         {category ? "카테고리 편집" : "카테고리 추가"}
       </h3>
       <input
@@ -192,35 +200,35 @@ function CategoryForm({
         onChange={(e) => setName(e.target.value)}
         placeholder="이름"
         required
-        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
       />
       <div className="flex items-center gap-3">
-        <label className="text-xs text-slate-500">색상</label>
+        <label className="text-xs text-muted-foreground">색상</label>
         <input
           type="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          className="h-9 w-12 cursor-pointer rounded border border-slate-200"
+          className="h-9 w-12 cursor-pointer rounded border border-input"
         />
       </div>
       <input
         value={keywords}
         onChange={(e) => setKeywords(e.target.value)}
         placeholder="키워드 (쉼표 구분)"
-        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
       />
       <div className="flex gap-2">
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {isPending ? "저장 중..." : "저장"}
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600"
+          className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground"
         >
           취소
         </button>
