@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/components/ui/toast";
 import {
   Calendar,
   CheckCircle2,
@@ -36,6 +37,7 @@ import {
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import type { Space } from "@/lib/spaces";
 import { SPACE_LABELS } from "@/lib/spaces";
+import { seoulIsoFromDateAndTime, getSeoulTodayKey } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { EntryType } from "@/lib/types";
 
@@ -103,13 +105,13 @@ function PreviewItemRow({
       return;
     }
     const time = scheduleTime || "09:00";
-    onDueAtChange(item.id, new Date(`${date}T${time}:00`).toISOString());
+    onDueAtChange(item.id, seoulIsoFromDateAndTime(date, time));
   }
 
   function handleScheduleTimeChange(time: string) {
     if (!onDueAtChange) return;
-    const date = scheduleDate || new Date().toISOString().slice(0, 10);
-    onDueAtChange(item.id, new Date(`${date}T${time}:00`).toISOString());
+    const date = scheduleDate || getSeoulTodayKey();
+    onDueAtChange(item.id, seoulIsoFromDateAndTime(date, time));
   }
 
   return (
@@ -325,6 +327,25 @@ function PreviewPanel({
   );
 }
 
+function summarizeResult(result: InboxProcessResult): string {
+  const { created } = result;
+  const total =
+    created.todos +
+    created.schedules +
+    created.notes +
+    created.checklist +
+    created.budget +
+    created.expense;
+  const parts: string[] = [];
+  if (created.todos) parts.push(`할일 ${created.todos}`);
+  if (created.schedules) parts.push(`일정 ${created.schedules}`);
+  if (created.notes) parts.push(`메모 ${created.notes}`);
+  if (created.checklist) parts.push(`체크리스트 ${created.checklist}`);
+  if (created.budget) parts.push(`예산 ${created.budget}`);
+  if (created.expense) parts.push(`지출 ${created.expense}`);
+  return total > 0 ? `저장 완료 · ${parts.join(" · ")}` : "저장되었습니다";
+}
+
 function SuccessSummary({ result }: { result: InboxProcessResult }) {
   const { classification, created, boardId } = result;
   const total =
@@ -360,6 +381,7 @@ export function SmartInput({
   className,
 }: SmartInputProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isOpen, setIsOpen] = useState(!compact || !!forceExpanded);
   const [text, setText] = useState("");
@@ -419,6 +441,7 @@ export function SmartInput({
       setIsOpen(false);
       onCollapse?.();
     }
+    toast(summarizeResult(result), "success");
     router.refresh();
     window.setTimeout(() => setLastResult(null), 4000);
   }
@@ -434,6 +457,7 @@ export function SmartInput({
         setItems(result.items);
       } catch (e) {
         setError(e instanceof Error ? e.message : "분석에 실패했습니다.");
+        toast(e instanceof Error ? e.message : "분석에 실패했습니다.", "error");
       }
     });
   }
@@ -454,6 +478,7 @@ export function SmartInput({
         afterSave(saved);
       } catch (e) {
         setError(e instanceof Error ? e.message : "저장에 실패했습니다.");
+        toast(e instanceof Error ? e.message : "저장에 실패했습니다.", "error");
       }
     });
   }
@@ -467,6 +492,7 @@ export function SmartInput({
         afterSave(result);
       } catch (e) {
         setError(e instanceof Error ? e.message : "저장에 실패했습니다.");
+        toast(e instanceof Error ? e.message : "저장에 실패했습니다.", "error");
       }
     });
   }
@@ -628,11 +654,9 @@ export function SmartInput({
                 if (item.id !== id) return item;
                 const dueAt =
                   kind === "schedule" && !item.dueAt
-                    ? new Date(
-                        `${new Date().toISOString().slice(0, 10)}T09:00:00`,
-                      ).toISOString()
+                    ? seoulIsoFromDateAndTime(getSeoulTodayKey(), "09:00")
                     : item.dueAt;
-                const today = new Date().toISOString().slice(0, 10);
+                const today = getSeoulTodayKey();
                 const startDate =
                   kind === "period" && !item.startDate ? today : item.startDate;
                 const endDate =

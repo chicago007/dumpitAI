@@ -139,9 +139,9 @@ export default async function HomePage({
         />
       )}
 
-      <ActiveProjectBoards boards={boards} />
-
       <SmartInput />
+
+      <ActiveProjectBoards boards={boards} />
 
       <div className="space-y-3">
         <SectionCard

@@ -10,10 +10,12 @@ import {
   LayoutList,
   Menu,
   Plus,
+  Search,
   Settings,
   StickyNote,
 } from "lucide-react";
 import { SpaceSwitcher } from "@/components/layout/space-switcher";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -23,8 +25,13 @@ import { ENTRY_TYPE_THEMES } from "@/lib/entry-type-theme";
 import { PROJECT_LABEL } from "@/lib/project-labels";
 import type { SidebarCounts } from "@/actions/entries";
 import type { ViewSpace } from "@/lib/spaces";
+import type { AppearanceThemeId } from "@/lib/appearance-themes";
 
 export type { SidebarCounts };
+
+function openSearch() {
+  window.dispatchEvent(new Event("open-command-palette"));
+}
 
 interface NavItem {
   href: string;
@@ -123,11 +130,13 @@ function SidebarContent({
   pathname,
   onNavigate,
   activeSpace,
+  activeTheme,
 }: {
   counts: SidebarCounts;
   pathname: string;
   onNavigate: () => void;
   activeSpace: ViewSpace;
+  activeTheme: AppearanceThemeId;
 }) {
   const primaryItems: NavItem[] = [
     { href: "/", label: "입력", icon: <Plus className="h-4 w-4" /> },
@@ -168,7 +177,7 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col bg-muted/50">
-      <div className="px-4 py-5">
+      <div className="flex items-center justify-between px-4 py-5">
         <Link
           href="/"
           onClick={onNavigate}
@@ -176,10 +185,25 @@ function SidebarContent({
         >
           {APP_NAME}
         </Link>
+        <ThemeToggle activeTheme={activeTheme} />
       </div>
 
       <div className="mb-2 px-2">
         <SpaceSwitcher activeSpace={activeSpace} />
+      </div>
+
+      <div className="mb-2 px-2">
+        <button
+          type="button"
+          onClick={openSearch}
+          className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card"
+        >
+          <Search className="h-4 w-4" />
+          <span>검색</span>
+          <kbd className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
+            ⌘K
+          </kbd>
+        </button>
       </div>
 
       <nav className="flex-1 space-y-3 overflow-y-auto px-2 pb-4">
@@ -232,9 +256,11 @@ function SidebarContent({
 export function Sidebar({
   counts,
   activeSpace,
+  activeTheme,
 }: {
   counts: SidebarCounts;
   activeSpace: ViewSpace;
+  activeTheme: AppearanceThemeId;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -249,10 +275,11 @@ export function Sidebar({
           pathname={pathname}
           onNavigate={closeDrawer}
           activeSpace={activeSpace}
+          activeTheme={activeTheme}
         />
       </aside>
 
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border/50 bg-card/95 px-4 py-3 backdrop-blur-md md:hidden">
+      <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border/50 bg-card/95 px-4 py-3 backdrop-blur-md md:hidden">
         <Button
           type="button"
           variant="ghost"
@@ -265,8 +292,19 @@ export function Sidebar({
         <Link href="/" className="text-base font-bold text-foreground">
           {APP_NAME}
         </Link>
-        <div className="ml-auto min-w-0 flex-1 max-w-[200px]">
-          <SpaceSwitcher activeSpace={activeSpace} compact />
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={openSearch}
+            aria-label="검색"
+          >
+            <Search className="h-5 w-5" />
+          </Button>
+          <div className="min-w-0 max-w-[140px]">
+            <SpaceSwitcher activeSpace={activeSpace} compact />
+          </div>
         </div>
       </header>
 
@@ -277,6 +315,7 @@ export function Sidebar({
             pathname={pathname}
             onNavigate={closeDrawer}
             activeSpace={activeSpace}
+            activeTheme={activeTheme}
           />
         </SheetContent>
       </Sheet>

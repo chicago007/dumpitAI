@@ -583,6 +583,41 @@ export async function clearStandaloneTodos(): Promise<{ count: number }> {
   return { count: ids.length };
 }
 
+/** 전역 검색 — 내용 부분 일치 (활성 공간 기준) */
+export async function searchEntries(query: string, space?: ViewSpace) {
+  const term = query.trim();
+  if (term.length < 1) return [];
+
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const viewSpace = space ?? (await getActiveSpace());
+  const escaped = term.replace(/[%_]/g, (m) => `\\${m}`);
+
+  let q = supabase
+    .from("entries")
+    .select("*, categories(*)")
+    .eq("user_id", user.id)
+    .eq("is_deleted", false)
+    .ilike("content", `%${escaped}%`)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (viewSpace !== "all") {
+    q = q.or(`space.eq.${viewSpace},space.is.null`);
+  }
+
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+
+  let entries = data ?? [];
+  if (viewSpace !== "all") {
+    entries = entries.filter((e) => getEntrySpace(e) === viewSpace);
+  }
+  return entries;
+}
+
 export async function deleteEntry(id: string) {
   const supabase = await createClient();
   const user = await getCurrentUser();

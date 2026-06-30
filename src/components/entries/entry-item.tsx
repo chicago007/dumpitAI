@@ -426,13 +426,13 @@ export function EntryItem({
           </>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
         <Button
           type="button"
           variant="ghost"
           size="icon"
           onClick={() => setIsEditing(true)}
-          className="h-8 w-8 text-muted-foreground"
+          className="h-9 w-9 text-muted-foreground"
           aria-label="수정"
         >
           <Pencil className="h-4 w-4" />
@@ -443,7 +443,7 @@ export function EntryItem({
           size="icon"
           onClick={handleDelete}
           disabled={isPending}
-          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          className="h-9 w-9 text-muted-foreground hover:text-destructive"
           aria-label="삭제"
         >
           <Trash2 className="h-4 w-4" />
