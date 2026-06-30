@@ -1,31 +1,31 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { addBoardSchedule } from "@/actions/boards";
 import { BoardEditableEntryRow } from "@/components/boards/board-editable-entry-row";
+import { formatBoardDateRange } from "@/lib/board-templates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Entry } from "@/lib/types";
-
-function formatDayHeader(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("ko-KR", {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  });
-}
+import {
+  formatSeoulDayHeader,
+  getSeoulDateKeyFromIso,
+  seoulIsoFromDateAndTime,
+} from "@/lib/dates";
 
 interface BoardScheduleTabProps {
   boardId: string;
+  boardName: string;
+  projectPeriod?: string | null;
   entries: Entry[];
   defaultCategoryId: string;
 }
 
 export function BoardScheduleTab({
   boardId,
+  boardName,
+  projectPeriod,
   entries,
   defaultCategoryId,
 }: BoardScheduleTabProps) {
@@ -35,23 +35,35 @@ export function BoardScheduleTab({
   const [date, setDate] = useState("");
   const [time, setTime] = useState("09:00");
 
-  const schedules = entries
-    .filter((e) => e.type === "schedule")
-    .sort((a, b) => (a.due_at ?? "").localeCompare(b.due_at ?? ""));
+  const schedules = useMemo(
+    () =>
+      entries
+        .filter((e) => e.type === "schedule")
+        .sort((a, b) => (a.due_at ?? "").localeCompare(b.due_at ?? "")),
+    [entries],
+  );
 
-  const byDay = new Map<string, Entry[]>();
-  for (const e of schedules) {
-    const dayKey = e.due_at?.slice(0, 10) ?? "unknown";
-    const list = byDay.get(dayKey) ?? [];
-    list.push(e);
-    byDay.set(dayKey, list);
-  }
+  const byDay = useMemo(() => {
+    const map = new Map<string, Entry[]>();
+    for (const e of schedules) {
+      const dayKey = e.due_at
+        ? getSeoulDateKeyFromIso(e.due_at)
+        : "unknown";
+      const list = map.get(dayKey) ?? [];
+      list.push(e);
+      map.set(dayKey, list);
+    }
+    return map;
+  }, [schedules]);
+
+  const activeCount = schedules.filter((e) => e.status === "active").length;
+  const doneCount = schedules.length - activeCount;
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = content.trim();
     if (!trimmed || !date) return;
-    const dueAt = new Date(`${date}T${time}:00`).toISOString();
+    const dueAt = seoulIsoFromDateAndTime(date, time);
     startTransition(async () => {
       await addBoardSchedule(boardId, trimmed, dueAt, defaultCategoryId);
       setContent("");
@@ -61,6 +73,17 @@ export function BoardScheduleTab({
 
   return (
     <div className="space-y-4">
+      <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
+        <p className="text-sm font-medium text-foreground">
+          {boardName} 일정 · {schedules.length}건
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          이 프로젝트 일정만 표시합니다. 전체 달력과는 별도로 관리됩니다.
+          {projectPeriod ? ` · 프로젝트 기간 ${projectPeriod}` : ""}
+          {doneCount > 0 ? ` · 완료 ${doneCount}` : ""}
+        </p>
+      </div>
+
       <form onSubmit={handleAdd} className="flex flex-wrap gap-2">
         <Input
           type="date"
@@ -94,7 +117,10 @@ export function BoardScheduleTab({
           {Array.from(byDay.entries()).map(([day, dayEntries]) => (
             <section key={day}>
               <h3 className="mb-2 text-sm font-semibold text-foreground">
-                {day !== "unknown" ? formatDayHeader(day) : "날짜 없음"}
+                {day !== "unknown" ? formatSeoulDayHeader(day) : "날짜 없음"}
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {dayEntries.length}건
+                </span>
               </h3>
               <ul className="space-y-1 border-l-2 border-primary/30 pl-3">
                 {dayEntries.map((entry) => (
@@ -111,13 +137,6 @@ export function BoardScheduleTab({
           ))}
         </div>
       )}
-
-      <Link
-        href="/calendar"
-        className="text-xs font-medium text-primary hover:underline"
-      >
-        캘린더에서 전체 일정 보기 →
-      </Link>
     </div>
   );
 }

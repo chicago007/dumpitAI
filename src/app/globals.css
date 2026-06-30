@@ -131,6 +131,15 @@
       sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+
+  select {
+    @apply bg-card text-foreground;
+  }
+
+  [data-theme="solarized-dark"],
+  [data-theme="midnight"] {
+    color-scheme: dark;
+  }
 }
 
 @layer utilities {

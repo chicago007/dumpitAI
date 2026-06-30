@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 import {
@@ -11,7 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { BoardExpenseCategoryList } from "@/components/boards/board-expense-category-list";
 import type { BoardExpense, BoardMetadata } from "@/lib/board-types";
+import { resolveExpenseCategories } from "@/lib/board-expense-categories";
 import {
   BOARD_CURRENCIES,
   formatBoardMoney,
@@ -34,10 +37,14 @@ function expenseCurrency(exp: BoardExpense): BoardCurrency {
 export function BoardExpenseTab({ boardId, metadata }: BoardExpenseTabProps) {
   const router = useRouter();
   const defaultCurrency = getBoardCurrency(metadata);
+  const categoryList = resolveExpenseCategories(metadata);
+  const categoryNames = categoryList.map((c) => c.name);
   const [isPending, startTransition] = useTransition();
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<BoardCurrency>(defaultCurrency);
-  const [category, setCategory] = useState("식비");
+  const [category, setCategory] = useState(
+    () => categoryNames[0] ?? "기타",
+  );
   const [memo, setMemo] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState("");
@@ -45,15 +52,13 @@ export function BoardExpenseTab({ boardId, metadata }: BoardExpenseTabProps) {
   const [editCategory, setEditCategory] = useState("");
   const [editMemo, setEditMemo] = useState("");
 
+  useEffect(() => {
+    if (categoryNames.length > 0 && !categoryNames.includes(category)) {
+      setCategory(categoryNames[0]);
+    }
+  }, [categoryNames, category]);
+
   const expenses = metadata.expenses ?? [];
-  const categories = metadata.budgetCategories?.map((c) => c.name) ?? [
-    "식비",
-    "교통",
-    "숙박",
-    "쇼핑",
-    "체크리스트",
-    "기타",
-  ];
 
   function refresh() {
     router.refresh();
@@ -131,59 +136,65 @@ export function BoardExpenseTab({ boardId, metadata }: BoardExpenseTabProps) {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-3 rounded-lg border border-border/50 p-3"
+      <BoardExpenseCategoryList
+        boardId={boardId}
+        metadata={metadata}
+        headerLeft={
+          <p className="text-sm font-medium text-foreground">+ 지출 추가</p>
+        }
       >
-        <p className="text-sm font-medium text-foreground">+ 지출 추가</p>
-        <div className="flex flex-wrap gap-2">
-          <div className="space-y-1.5 flex-1 min-w-[120px]">
-            <Label className="text-xs">금액</Label>
+        <form onSubmit={handleSubmit} className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+            <Label className="shrink-0 text-xs text-muted-foreground">
+              금액
+            </Label>
             <Input
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="12,000원 · $50 · ¥1000"
-              className="h-8 text-sm"
+              className="h-8 min-w-[100px] flex-1 text-sm"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">통화</Label>
-            <select
+            <Label className="shrink-0 text-xs text-muted-foreground">
+              통화
+            </Label>
+            <NativeSelect
               value={currency}
               onChange={(e) => setCurrency(e.target.value as BoardCurrency)}
-              className="flex h-8 w-full min-w-[110px] rounded-md border border-input bg-card px-2 text-sm"
+              className="h-8 w-auto min-w-[100px] rounded-md px-2"
             >
               {BOARD_CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>{c.label}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">카테고리</Label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="flex h-8 w-full rounded-md border border-input bg-card px-2 text-sm"
-          >
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">메모</Label>
-          <Input
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            placeholder="이치란라멘"
-            className="h-8 text-sm"
-          />
-        </div>
-        <Button type="submit" size="sm" disabled={isPending}>
-          저장
-        </Button>
-      </form>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+            <Label className="shrink-0 text-xs text-muted-foreground">
+              카테고리
+            </Label>
+            <NativeSelect
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="h-8 min-w-[72px] w-auto max-w-[120px] rounded-md px-2"
+            >
+              {categoryNames.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </NativeSelect>
+            <Label className="shrink-0 text-xs text-muted-foreground">
+              메모
+            </Label>
+            <Input
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder="이치란라멘"
+              className="h-8 min-w-[100px] flex-1 text-sm"
+            />
+          </div>
+          <Button type="submit" size="sm" disabled={isPending}>
+            저장
+          </Button>
+        </form>
+      </BoardExpenseCategoryList>
 
       {expenses.length === 0 ? (
         <p className="text-center text-sm text-muted-foreground py-4">
@@ -202,44 +213,58 @@ export function BoardExpenseTab({ boardId, metadata }: BoardExpenseTabProps) {
                     ? (
                         <li
                           key={exp.id}
-                          className="space-y-2 rounded-md border border-border/50 p-2"
+                          className="space-y-2 rounded-md border border-border/50 bg-muted/20 p-2"
                         >
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+                            <Label className="shrink-0 text-xs text-muted-foreground">
+                              금액
+                            </Label>
                             <Input
                               value={editAmount}
                               onChange={(e) => setEditAmount(e.target.value)}
-                              className="h-8 text-sm flex-1"
+                              className="h-8 min-w-[80px] flex-1 text-sm"
                               placeholder="금액"
                             />
-                            <select
+                            <Label className="shrink-0 text-xs text-muted-foreground">
+                              통화
+                            </Label>
+                            <NativeSelect
                               value={editCurrency}
                               onChange={(e) =>
                                 setEditCurrency(e.target.value as BoardCurrency)
                               }
-                              className="flex h-8 min-w-[100px] rounded-md border border-input px-2 text-sm"
+                              className="h-8 w-auto min-w-[72px] rounded-md px-2"
                             >
                               {BOARD_CURRENCIES.map((c) => (
                                 <option key={c.code} value={c.code}>
                                   {c.code}
                                 </option>
                               ))}
-                            </select>
+                            </NativeSelect>
                           </div>
-                          <select
-                            value={editCategory}
-                            onChange={(e) => setEditCategory(e.target.value)}
-                            className="flex h-8 w-full rounded-md border border-input px-2 text-sm"
-                          >
-                            {categories.map((c) => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
-                          <Input
-                            value={editMemo}
-                            onChange={(e) => setEditMemo(e.target.value)}
-                            className="h-8 text-sm"
-                            placeholder="메모"
-                          />
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+                            <Label className="shrink-0 text-xs text-muted-foreground">
+                              카테고리
+                            </Label>
+                            <NativeSelect
+                              value={editCategory}
+                              onChange={(e) => setEditCategory(e.target.value)}
+                              className="h-8 min-w-[72px] w-auto max-w-[120px] rounded-md px-2"
+                            >
+                              {categoryNames.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </NativeSelect>
+                            <Label className="shrink-0 text-xs text-muted-foreground">
+                              메모
+                            </Label>
+                            <Input
+                              value={editMemo}
+                              onChange={(e) => setEditMemo(e.target.value)}
+                              className="h-8 min-w-[80px] flex-1 text-sm"
+                              placeholder="메모"
+                            />
+                          </div>
                           <div className="flex gap-2">
                             <Button
                               type="button"

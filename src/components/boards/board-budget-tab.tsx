@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { updateBoardBudget, updateBoardCurrency } from "@/actions/boards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { BoardBudgetCategory, BoardMetadata } from "@/lib/board-types";
+import { resolveExpenseCategories } from "@/lib/board-expense-categories";
 import { PROJECT_LABEL } from "@/lib/project-labels";
 import {
   BOARD_CURRENCIES,
@@ -33,7 +35,7 @@ export function BoardBudgetTab({
   const [totalText, setTotalText] = useState(String(budgetTotal));
   const [currency, setCurrency] = useState<BoardCurrency>(boardCurrency);
   const [categories, setCategories] = useState<BoardBudgetCategory[]>(
-    metadata.budgetCategories ?? [],
+    () => resolveExpenseCategories(metadata),
   );
   const [isPending, startTransition] = useTransition();
 
@@ -42,11 +44,22 @@ export function BoardBudgetTab({
 
   function handleSave() {
     const total = Number(totalText.replace(/[^\d]/g, "")) || 0;
+    const valid = categories
+      .map((c) => ({ ...c, name: c.name.trim() }))
+      .filter((c) => c.name);
+    if (valid.length === 0) return;
+
+    const names = new Set<string>();
+    for (const cat of valid) {
+      if (names.has(cat.name)) return;
+      names.add(cat.name);
+    }
+
     startTransition(async () => {
       if (currency !== boardCurrency) {
         await updateBoardCurrency(boardId, currency);
       }
-      await updateBoardBudget(boardId, total, categories);
+      await updateBoardBudget(boardId, total, valid);
       setIsEditing(false);
       router.refresh();
     });
@@ -86,7 +99,7 @@ export function BoardBudgetTab({
             onClick={() => {
               setTotalText(String(budgetTotal));
               setCurrency(boardCurrency);
-              setCategories(metadata.budgetCategories ?? []);
+              setCategories(resolveExpenseCategories(metadata));
               setIsEditing(true);
             }}
           >
@@ -109,17 +122,17 @@ export function BoardBudgetTab({
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">통화</label>
-              <select
+              <NativeSelect
                 value={currency}
                 onChange={(e) =>
                   setCurrency(e.target.value as BoardCurrency)
                 }
-                className="flex h-8 w-full min-w-[120px] rounded-md border border-input bg-card px-2 text-sm"
+                className="h-8 min-w-[120px] rounded-md px-2"
               >
                 {BOARD_CURRENCIES.map((c) => (
                   <option key={c.code} value={c.code}>{c.label}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           </div>
           {categories.map((cat, idx) => (
@@ -145,8 +158,36 @@ export function BoardBudgetTab({
                 }}
                 className="h-8 text-sm w-28"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 hover:text-destructive"
+                disabled={categories.length <= 1}
+                onClick={() =>
+                  setCategories(categories.filter((_, i) => i !== idx))
+                }
+                aria-label={`${cat.name} 삭제`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1"
+            onClick={() =>
+              setCategories([
+                ...categories,
+                { id: crypto.randomUUID(), name: "", amount: 0 },
+              ])
+            }
+          >
+            <Plus className="h-3.5 w-3.5" />
+            카테고리
+          </Button>
           <div className="flex gap-2">
             <Button type="button" size="sm" disabled={isPending} onClick={handleSave}>
               저장

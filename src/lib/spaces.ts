@@ -70,6 +70,18 @@ export function getDefaultCategoryNameForSpace(space: Space) {
   return space === "work" ? "업무" : "기타";
 }
 
+/** 항목의 개인/업무 — entry.space 없으면 카테고리에서 추론 */
+export function getEntrySpace(entry: {
+  space?: string | null;
+  categories?: { space?: string | null; name?: string } | null;
+}): Space {
+  if (isSpace(entry.space)) return entry.space;
+  const cat = entry.categories;
+  if (cat && isSpace(cat.space)) return cat.space;
+  if (cat?.name) return categorySpaceFromName(cat.name);
+  return "personal";
+}
+
 /** DB에 저장할 공간 — 전체 보기에서는 반드시 명시 */
 export function resolveEntrySpace(
   viewSpace: ViewSpace,

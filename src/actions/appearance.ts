@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   APPEARANCE_THEME_COOKIE,
   isAppearanceThemeId,
@@ -22,9 +22,7 @@ export async function getAppearanceTheme(): Promise<AppearanceThemeId> {
 
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) return DEFAULT_THEME;
 
     const { data } = await supabase
@@ -62,9 +60,7 @@ export async function persistAppearanceTheme(theme: AppearanceThemeId) {
   if (!isAppearanceThemeId(theme)) return;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return;
 
   const { error } = await supabase.from("user_settings").upsert({

@@ -6,7 +6,7 @@ import { loadCategories, loadEntries } from "@/lib/app-data";
 import {
   getSeoulDateKeyFromIso,
   getSeoulDateParts,
-  getSeoulMonthRange,
+  getSeoulCalendarGridRange,
 } from "@/lib/dates";
 import type { Entry } from "@/lib/types";
 import { isSchemaSetupError } from "@/lib/supabase/errors";
@@ -15,18 +15,10 @@ function getCalendarDayKey(entry: Entry): string | null {
   if (entry.due_at) {
     return getSeoulDateKeyFromIso(entry.due_at);
   }
-  if (entry.type === "memo") {
-    return getSeoulDateKeyFromIso(entry.created_at);
-  }
   if (entry.status === "done" && entry.completed_at) {
     return getSeoulDateKeyFromIso(entry.completed_at);
   }
   return null;
-}
-
-function isInMonthRange(iso: string, startKey: string, endKey: string) {
-  const key = getSeoulDateKeyFromIso(iso);
-  return key >= startKey && key <= endKey;
 }
 
 export default async function CalendarPage({
@@ -51,19 +43,21 @@ export default async function CalendarPage({
     return <SetupNotice />;
   }
 
-  const { start: monthStart, end: monthEnd } = getSeoulMonthRange(year, month0);
-  const monthStartKey = getSeoulDateKeyFromIso(monthStart.toISOString());
-  const monthEndKey = getSeoulDateKeyFromIso(monthEnd.toISOString());
-  const types = ["todo", "checklist", "schedule", "memo"] as const;
+  const {
+    start: rangeStart,
+    end: rangeEnd,
+  } = getSeoulCalendarGridRange(year, month0);
+  const types = ["todo", "checklist", "schedule"] as const;
 
   let entries: Entry[] = [];
   try {
     entries = await getEntriesByDueRange({
-      start: monthStart,
-      end: monthEnd,
+      start: rangeStart,
+      end: rangeEnd,
       types: [...types],
       space: activeSpace,
       includeDone: true,
+      excludeBoard: true,
     });
   } catch (error) {
     if (isSchemaSetupError(error)) {
@@ -77,22 +71,10 @@ export default async function CalendarPage({
     status: "active",
     space: activeSpace,
   });
-  const seenIds = new Set(entries.map((e) => e.id));
-  if (memoCalendarResult.ok) {
-    for (const memo of memoCalendarResult.data) {
-      if (memo.due_at) continue;
-      if (!isInMonthRange(memo.created_at, monthStartKey, monthEndKey)) {
-        continue;
-      }
-      if (!seenIds.has(memo.id)) {
-        entries.push(memo);
-        seenIds.add(memo.id);
-      }
-    }
-  }
 
   const entriesByDay: Record<string, Entry[]> = {};
   for (const entry of entries) {
+    if (entry.type === "memo") continue;
     const key = getCalendarDayKey(entry);
     if (!key) continue;
     const list = entriesByDay[key] ?? [];

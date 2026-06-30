@@ -1,3 +1,9 @@
+import { parseLineTypePrefix } from "@/lib/ai-inbox-normalize";
+import type { InboxItemKind } from "@/lib/ai-inbox-types";
+import {
+  formatBoardDateRangeKo,
+  parseBoardDateRange,
+} from "@/lib/board-date-range";
 import { extractDueDate } from "@/lib/classify";
 import {
   type BoardCurrency,
@@ -8,6 +14,7 @@ import {
 export type BoardInputKind =
   | "checklist"
   | "schedule"
+  | "period"
   | "memo"
   | "budget"
   | "expense";
@@ -21,12 +28,24 @@ const SCHEDULE_KEYWORDS =
 const CHECKLIST_PLANNED_KEYWORDS =
   /비행기|항공|숙박|호텔|보험|준비|예약|티켓|패스|렌터카|이동편|교통편|여행보험|여권|비행기표/;
 
+const FORCED_BOARD_KIND: Partial<Record<InboxItemKind, BoardInputKind>> = {
+  todo: "checklist",
+  checklist: "checklist",
+  schedule: "schedule",
+  period: "period",
+  memo: "memo",
+  budget: "budget",
+  expense: "expense",
+};
+
 export interface BoardClassifyResult {
   kind: BoardInputKind;
   cleanedContent: string;
   amount: number | null;
   currency: BoardCurrency;
   dueAt: Date | null;
+  startDate?: string | null;
+  endDate?: string | null;
   previewLabel: string;
   /** 카테고리/항목 형식 입력 시 체크리스트 그룹 이름 */
   groupName?: string;
@@ -51,7 +70,29 @@ export function parseChecklistCategoryItem(content: string): {
 
 export function classifyBoardInput(content: string): BoardClassifyResult {
   const trimmed = content.trim();
-  const categoryItem = parseChecklistCategoryItem(trimmed);
+  const { forceKind, content: prefixedBody } = parseLineTypePrefix(trimmed);
+  const body =
+    forceKind && prefixedBody !== trimmed ? prefixedBody : trimmed;
+
+  const periodRange = parseBoardDateRange(body);
+  if (periodRange) {
+    const label = formatBoardDateRangeKo(
+      periodRange.startDate,
+      periodRange.endDate,
+    );
+    return {
+      kind: "period",
+      cleanedContent: "",
+      amount: null,
+      currency: "KRW",
+      dueAt: null,
+      startDate: periodRange.startDate,
+      endDate: periodRange.endDate,
+      previewLabel: `프로젝트 기간 · ${label}`,
+    };
+  }
+
+  const categoryItem = parseChecklistCategoryItem(body);
 
   if (categoryItem) {
     const { date: dueAt, cleaned: afterDate } = extractDueDate(
@@ -89,29 +130,32 @@ export function classifyBoardInput(content: string): BoardClassifyResult {
     };
   }
 
-  const { date: dueAt, cleaned: afterDate } = extractDueDate(trimmed);
+  const { date: dueAt, cleaned: afterDate } = extractDueDate(body);
   const money = parseBoardMoney(afterDate);
-  const cleaned = stripMoneyFromContent(afterDate) || trimmed;
+  const cleaned = stripMoneyFromContent(afterDate) || body;
 
+  const forcedKind = forceKind ? FORCED_BOARD_KIND[forceKind] : undefined;
   let kind: BoardInputKind = "checklist";
 
-  if (DEADLINE_PARTICLE.test(trimmed)) {
+  if (forcedKind) {
+    kind = forcedKind;
+  } else if (DEADLINE_PARTICLE.test(body)) {
     kind = "checklist";
-  } else if (BUDGET_KEYWORDS.test(trimmed)) {
+  } else if (BUDGET_KEYWORDS.test(body)) {
     kind = "budget";
-  } else if (dueAt || SCHEDULE_KEYWORDS.test(trimmed)) {
+  } else if (dueAt || SCHEDULE_KEYWORDS.test(body)) {
     kind = "schedule";
-  } else if (money.amount !== null && CHECKLIST_PLANNED_KEYWORDS.test(trimmed)) {
+  } else if (money.amount !== null && CHECKLIST_PLANNED_KEYWORDS.test(body)) {
     kind = "checklist";
   } else if (
     money.amount !== null &&
-    (EXPENSE_KEYWORDS.test(trimmed) || !CHECKLIST_PLANNED_KEYWORDS.test(trimmed))
+    (EXPENSE_KEYWORDS.test(body) || !CHECKLIST_PLANNED_KEYWORDS.test(body))
   ) {
     kind = "expense";
   } else if (
-    trimmed.length > 60 ||
-    trimmed.includes("\n") ||
-    /^[-•*]/m.test(trimmed)
+    body.length > 60 ||
+    body.includes("\n") ||
+    /^[-•*]/m.test(body)
   ) {
     kind = "memo";
   }
@@ -119,6 +163,7 @@ export function classifyBoardInput(content: string): BoardClassifyResult {
   const kindLabels: Record<BoardInputKind, string> = {
     checklist: "체크리스트",
     schedule: "일정",
+    period: "프로젝트 기간",
     memo: "메모",
     budget: "예산",
     expense: "지출",

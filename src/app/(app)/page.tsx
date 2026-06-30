@@ -84,6 +84,7 @@ export default async function HomePage({
       end,
       types: ["schedule"],
       space: activeSpace,
+      excludeBoard: true,
     });
     weekSchedules = weekSchedules
       .sort((a, b) => (a.due_at ?? "").localeCompare(b.due_at ?? ""))

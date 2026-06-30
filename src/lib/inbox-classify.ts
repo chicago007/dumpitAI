@@ -18,6 +18,7 @@ import {
   classifyBoardInput,
   type BoardClassifyResult,
 } from "@/lib/board-classify";
+import { formatBoardDateRangeKo, parseBoardDateRange } from "@/lib/board-date-range";
 import { parseBoardMoney, stripMoneyFromContent } from "@/lib/board-money";
 import { extractDueDate } from "@/lib/classify";
 import { parseSpaceLinePrefix } from "@/lib/space-input";
@@ -43,13 +44,23 @@ function fromBoardResult(
   result: BoardClassifyResult,
   targetSpace: Space,
 ): InboxPreviewItem {
+  const periodLabel =
+    result.startDate && result.endDate
+      ? formatBoardDateRangeKo(result.startDate, result.endDate)
+      : null;
+
   return {
     id: newId(),
     rawLine,
     kind: boardKindToInboxKind(result.kind),
-    content: result.cleanedContent,
+    content:
+      result.kind === "period"
+        ? periodLabel ?? rawLine
+        : result.cleanedContent,
     targetSpace,
     dueAt: result.dueAt?.toISOString() ?? null,
+    startDate: result.startDate ?? null,
+    endDate: result.endDate ?? null,
     amount: result.amount,
     currency: result.currency,
     groupName: result.groupName ?? null,
@@ -71,6 +82,7 @@ function resolveForcedKind(
       return "todo";
     case "budget":
     case "expense":
+    case "period":
       return "memo";
     default:
       return kind;
@@ -90,10 +102,23 @@ function fromForcedKind(
 
   let amount: number | null = null;
   let currency = "KRW";
-  if (resolvedKind === "budget" || resolvedKind === "expense") {
+  let startDate: string | null = null;
+  let endDate: string | null = null;
+  let displayContent = text;
+
+  if (resolvedKind === "period") {
+    const range = parseBoardDateRange(content);
+    if (range) {
+      startDate = range.startDate;
+      endDate = range.endDate;
+      displayContent =
+        formatBoardDateRangeKo(range.startDate, range.endDate) ?? text;
+    }
+  } else if (resolvedKind === "budget" || resolvedKind === "expense") {
     const money = parseBoardMoney(content);
     amount = money.amount;
     currency = money.currency;
+    displayContent = stripMoneyFromContent(text) || text;
   }
 
   return {
@@ -101,11 +126,10 @@ function fromForcedKind(
     rawLine,
     kind: resolvedKind,
     targetSpace,
-    content:
-      resolvedKind === "budget" || resolvedKind === "expense"
-        ? stripMoneyFromContent(text) || text
-        : text,
+    content: displayContent,
     dueAt: date?.toISOString() ?? null,
+    startDate,
+    endDate,
     amount,
     currency,
     groupName: null,
@@ -395,6 +419,7 @@ export function previewToClassification(
       case "memo":
       case "budget":
       case "expense":
+      case "period":
         classification.notes.push(item.content);
         break;
     }

@@ -35,6 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Mic, ChevronDown, Calendar, CheckCircle2, ClipboardList, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ENTRY_TYPE_THEMES } from "@/lib/entry-type-theme";
@@ -346,29 +347,27 @@ export function CaptureInput({
               <div className="mb-3 grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>타입</Label>
-                  <select
+                  <NativeSelect
                     value={type}
                     onChange={(e) => setType(e.target.value as EntryType)}
-                    className="flex h-10 w-full rounded-xl border border-input bg-card px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {(["memo", "todo", "schedule", "checklist"] as EntryType[]).map(
                       (t) => (
                         <option key={t} value={t}>{TYPE_LABELS[t]}</option>
                       ),
                     )}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-1.5">
                   <Label>카테고리</Label>
-                  <select
+                  <NativeSelect
                     value={categoryId}
                     onChange={(e) => handleCategoryChange(e.target.value)}
-                    className="flex h-10 w-full rounded-xl border border-input bg-card px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
 

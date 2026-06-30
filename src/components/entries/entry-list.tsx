@@ -17,6 +17,8 @@ interface EntryListProps {
   categories: Category[];
   showCheckbox?: boolean;
   hideType?: boolean;
+  showTypeBadge?: boolean;
+  showSpaceBadge?: boolean;
   variant?: "plain" | "cards" | "accent";
   emptyState?: EntryListEmptyState;
   emptyMessage?: string;
@@ -28,10 +30,12 @@ export function EntryList({
   categories,
   showCheckbox = true,
   hideType = false,
+  showTypeBadge = false,
+  showSpaceBadge = false,
   variant = "plain",
   emptyState,
   emptyMessage = "항목이 없습니다.",
-  compactMeta = false,
+  compactMeta,
 }: EntryListProps) {
   if (entries.length === 0) {
     if (emptyState) {
@@ -64,9 +68,11 @@ export function EntryList({
           categories={categories}
           showCheckbox={showCheckbox}
           hideType={hideType}
+          showTypeBadge={showTypeBadge}
+          showSpaceBadge={showSpaceBadge}
           cardRow={cardRow}
           accentRow={accentRow}
-          compactMeta={compactMeta || accentRow}
+          compactMeta={compactMeta ?? accentRow}
         />
       ))}
     </ul>

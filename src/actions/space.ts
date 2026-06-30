@@ -1,8 +1,9 @@
 "use server";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   isSpace,
   isViewSpace,
@@ -15,16 +16,18 @@ function revalidateAll() {
   revalidatePath("/", "layout");
 }
 
-export async function getActiveSpace(): Promise<ViewSpace> {
+/**
+ * 요청 단위로 메모이즈 — 레이아웃·페이지·여러 액션이 같은 렌더에서
+ * 반복 호출해도 쿠키/DB 조회는 한 번만 수행한다.
+ */
+const readActiveSpace = cache(async (): Promise<ViewSpace> => {
   const cookieStore = await cookies();
   const fromCookie = cookieStore.get(SPACE_COOKIE)?.value;
   if (isViewSpace(fromCookie)) return fromCookie;
 
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) return "personal";
 
     const { data } = await supabase
@@ -39,6 +42,10 @@ export async function getActiveSpace(): Promise<ViewSpace> {
   }
 
   return "personal";
+});
+
+export async function getActiveSpace(): Promise<ViewSpace> {
+  return readActiveSpace();
 }
 
 /** 쿠키 + 레이아웃 갱신만 (빠른 전환) */
@@ -60,9 +67,7 @@ export async function persistActiveSpace(space: ViewSpace) {
   if (!isSpace(space)) return;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return;
 
   await supabase.from("user_settings").upsert({

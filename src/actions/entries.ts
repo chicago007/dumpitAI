@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { getActiveSpace } from "@/actions/space";
 import { learnCategoryKeyword } from "@/actions/categories";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { CreateEntryInput, EntryType, Space, UpdateEntryInput } from "@/lib/types";
-import { getDefaultCategoryNameForSpace, type ViewSpace } from "@/lib/spaces";
+import { getDefaultCategoryNameForSpace, getEntrySpace, type ViewSpace } from "@/lib/spaces";
 import { buildTravelMetadata } from "@/lib/travel";
 import {
   getTravelPlanId,
@@ -27,9 +27,14 @@ function applyStandaloneTodoFilter<
     boardId?: string;
     type?: EntryType;
     today?: boolean;
+    excludeBoard?: boolean;
   },
 ): T {
   if (filters?.boardId) return query;
+
+  if (filters?.excludeBoard) {
+    return query.is("board_id", null);
+  }
 
   if (filters?.type === "todo") {
     return query
@@ -40,9 +45,11 @@ function applyStandaloneTodoFilter<
   }
 
   if (filters?.today) {
-    return query.or(
-      "and(board_id.is.null,or(metadata->>fromTravelChecklist.is.null,metadata->>fromTravelChecklist.neq.true)),type.neq.todo",
-    );
+    return query
+      .is("board_id", null)
+      .or(
+        "metadata->>fromTravelChecklist.is.null,metadata->>fromTravelChecklist.neq.true,type.neq.todo",
+      );
   }
 
   return query;
@@ -54,6 +61,7 @@ export async function getEntries(filters?: {
   categoryId?: string;
   boardId?: string;
   today?: boolean;
+  excludeBoard?: boolean;
   limit?: number;
   space?: ViewSpace;
 }) {
@@ -67,7 +75,7 @@ export async function getEntries(filters?: {
     .order("created_at", { ascending: false });
 
   if (viewSpace !== "all") {
-    query = query.eq("space", viewSpace);
+    query = query.or(`space.eq.${viewSpace},space.is.null`);
   }
 
   if (filters?.status) {
@@ -100,6 +108,39 @@ export async function getEntries(filters?: {
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
+  let entries = data ?? [];
+  if (viewSpace !== "all") {
+    entries = entries.filter((e) => getEntrySpace(e) === viewSpace);
+  }
+  return entries;
+}
+
+/** 오늘 completed_at 기준으로 완료 처리된 항목 */
+export async function getEntriesCompletedToday(space?: ViewSpace) {
+  const supabase = await createClient();
+  const viewSpace = space ?? (await getActiveSpace());
+
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  let query = supabase
+    .from("entries")
+    .select("*, categories(*)")
+    .eq("is_deleted", false)
+    .eq("status", "done")
+    .gte("completed_at", start.toISOString())
+    .lte("completed_at", end.toISOString())
+    .in("type", ["todo", "schedule", "memo", "checklist"])
+    .order("completed_at", { ascending: false });
+
+  if (viewSpace !== "all") {
+    query = query.eq("space", viewSpace);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
   return data ?? [];
 }
 
@@ -119,6 +160,7 @@ async function countEntries(
     status?: string;
     type?: EntryType;
     today?: boolean;
+    excludeBoard?: boolean;
   },
 ) {
   let query = supabase
@@ -164,7 +206,11 @@ export async function getSidebarCounts(
     countEntries(supabase, viewSpace, { today: true }),
     countEntries(supabase, viewSpace, { status: "active", type: "memo" }),
     countEntries(supabase, viewSpace, { status: "active", type: "todo" }),
-    countEntries(supabase, viewSpace, { status: "active", type: "schedule" }),
+    countEntries(supabase, viewSpace, {
+      status: "active",
+      type: "schedule",
+      excludeBoard: true,
+    }),
     getBoardCount(viewSpace),
     countEntries(supabase, viewSpace, { status: "done" }),
   ]);
@@ -178,6 +224,8 @@ export async function getEntriesByDueRange(params: {
   types?: EntryType[];
   space?: ViewSpace;
   includeDone?: boolean;
+  boardId?: string;
+  excludeBoard?: boolean;
 }) {
   const supabase = await createClient();
   const viewSpace = params.space ?? (await getActiveSpace());
@@ -210,6 +258,12 @@ export async function getEntriesByDueRange(params: {
     query = query.in("type", params.types);
   }
 
+  if (params.boardId) {
+    query = query.eq("board_id", params.boardId);
+  } else if (params.excludeBoard) {
+    query = query.is("board_id", null);
+  }
+
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -229,9 +283,7 @@ function revalidateEntryPaths() {
 
 export async function createEntry(input: CreateEntryInput) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const viewSpace = await getActiveSpace();
@@ -285,9 +337,7 @@ export async function createEntry(input: CreateEntryInput) {
 /** 항목을 업무/개인 공간으로 이동 */
 export async function moveEntryToSpace(entryId: string, targetSpace: Space) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { data: entry, error: fetchError } = await supabase
@@ -342,9 +392,7 @@ export async function moveEntryToSpace(entryId: string, targetSpace: Space) {
 
 export async function assignEntryCategory(entryId: string, categoryId: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { error } = await supabase
@@ -364,9 +412,7 @@ export async function syncTravelChecklistEntries(travelCategoryId: string) {
 
 export async function updateEntry(input: UpdateEntryInput) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { error } = await supabase
@@ -395,9 +441,7 @@ export async function updateBoardLinkedEntry(input: {
   dueAt?: string | null;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { data: entry, error: fetchError } = await supabase
@@ -469,9 +513,7 @@ export async function toggleEntryDone(id: string, done: boolean) {
 /** 일반 할일 목록 항목 수 (프로젝트 소속 제외) */
 export async function getStandaloneTodoCount(): Promise<number> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { count, error } = await supabase
@@ -489,9 +531,7 @@ export async function getStandaloneTodoCount(): Promise<number> {
 /** 일반 할일 목록 항목 전체 삭제 (프로젝트·여행 준비 제외) */
 export async function clearStandaloneTodos(): Promise<{ count: number }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { data: targets, error: fetchError } = await supabase
@@ -522,9 +562,7 @@ export async function clearStandaloneTodos(): Promise<{ count: number }> {
 
 export async function deleteEntry(id: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { data: entry, error: fetchError } = await supabase

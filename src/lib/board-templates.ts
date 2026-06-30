@@ -1,4 +1,5 @@
 import type { BoardProjectType } from "@/lib/board-types";
+import { formatBoardDateRangeKo } from "@/lib/board-date-range";
 import { toBoardChecklistGroups } from "@/lib/travel-checklist-template";
 
 export interface BoardTemplateGroup {
@@ -165,14 +166,7 @@ export function formatBoardDateRange(
   start: string | null | undefined,
   end: string | null | undefined,
 ): string | null {
-  if (!start && !end) return null;
-  const fmt = (d: string) => {
-    const [y, m, day] = d.split("-");
-    return `${y}.${m}.${day}`;
-  };
-  if (start && end) return `${fmt(start)} ~ ${fmt(end)}`;
-  if (start) return fmt(start);
-  return fmt(end!);
+  return formatBoardDateRangeKo(start, end);
 }
 
 export function parseBudgetAmount(text: string): number {

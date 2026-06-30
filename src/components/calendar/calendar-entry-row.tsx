@@ -36,6 +36,8 @@ export function CalendarEntryRow({
 }) {
   const isDone = entry.status === "done";
   const theme = getEntryTypeTheme(entry.type);
+  const isSchedule = entry.type === "schedule";
+  const isTodoLike = entry.type === "todo" || entry.type === "checklist";
   const [isPending, startTransition] = useTransition();
   const canToggle = entry.type === "todo" || entry.type === "checklist";
 
@@ -72,16 +74,36 @@ export function CalendarEntryRow({
         isDone && "opacity-55",
         isPending && "opacity-40",
       )}
-      title={entry.content}
+      title={`${theme.label}: ${entry.content}`}
     >
-      <span
-        className={cn(
-          "h-1.5 w-1 shrink-0 rounded-full",
-          isDone && "bg-muted-foreground",
-        )}
-        style={isDone ? undefined : { backgroundColor: theme.color }}
-        aria-hidden
-      />
+      {isSchedule ? (
+        <span
+          className={cn(
+            "h-1.5 w-1.5 shrink-0 rounded-full",
+            isDone && "bg-muted-foreground",
+          )}
+          style={isDone ? undefined : { backgroundColor: theme.color }}
+          aria-hidden
+        />
+      ) : isTodoLike ? (
+        <span
+          className={cn(
+            "h-1.5 w-1.5 shrink-0 rounded-[2px] border",
+            isDone && "border-muted-foreground",
+          )}
+          style={isDone ? undefined : { borderColor: theme.color }}
+          aria-hidden
+        />
+      ) : (
+        <span
+          className={cn(
+            "h-1.5 w-1 shrink-0 rounded-full",
+            isDone && "bg-muted-foreground",
+          )}
+          style={isDone ? undefined : { backgroundColor: theme.color }}
+          aria-hidden
+        />
+      )}
       <span
         className={cn(
           "min-w-0 flex-1 text-foreground",

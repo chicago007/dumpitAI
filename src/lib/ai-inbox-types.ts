@@ -19,7 +19,8 @@ export type InboxItemKind =
   | "memo"
   | "checklist"
   | "budget"
-  | "expense";
+  | "expense"
+  | "period";
 
 export interface InboxPreviewItem {
   id: string;
@@ -28,6 +29,8 @@ export interface InboxPreviewItem {
   content: string;
   targetSpace: Space;
   dueAt: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
   amount: number | null;
   currency: string;
   groupName: string | null;
@@ -75,6 +78,7 @@ export const INBOX_KIND_LABELS: Record<InboxItemKind, string> = {
   checklist: "체크리스트",
   budget: "예산",
   expense: "지출",
+  period: "프로젝트 기간",
 };
 
 export const GLOBAL_INBOX_KINDS: InboxItemKind[] = [
@@ -86,6 +90,7 @@ export const GLOBAL_INBOX_KINDS: InboxItemKind[] = [
 export const PROJECT_INBOX_KINDS: InboxItemKind[] = [
   "checklist",
   "schedule",
+  "period",
   "memo",
   "budget",
   "expense",
@@ -102,6 +107,8 @@ export const INBOX_PREFIX_ALIASES: Record<string, InboxItemKind> = {
   메모: "memo",
   예산: "budget",
   지출: "expense",
+  기간: "period",
+  period: "period",
   t: "todo",
   s: "schedule",
   m: "memo",

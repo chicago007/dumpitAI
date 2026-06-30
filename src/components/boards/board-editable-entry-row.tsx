@@ -19,6 +19,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Entry } from "@/lib/types";
+import {
+  seoulDateInputFromIso,
+  seoulIsoFromDateAndTime,
+  seoulTimeInputFromIso,
+} from "@/lib/dates";
 
 interface BoardEditableEntryRowProps {
   entry: Entry;
@@ -27,14 +32,11 @@ interface BoardEditableEntryRowProps {
 }
 
 function toTimeValue(iso: string | null) {
-  if (!iso) return "09:00";
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return seoulTimeInputFromIso(iso);
 }
 
 function toDateValue(iso: string | null) {
-  if (!iso) return "";
-  return iso.slice(0, 10);
+  return seoulDateInputFromIso(iso);
 }
 
 function getPlannedAmount(entry: Entry): number | null {
@@ -81,6 +83,7 @@ export function BoardEditableEntryRow({
 
   const isDone = entry.status === "done";
   const showCheckbox = variant === "checklist";
+  const showActions = variant === "checklist" || variant === "schedule" || variant === "memo";
   const plannedAmount = getPlannedAmount(entry);
   const plannedCurrency = getPlannedCurrency(entry);
 
@@ -91,7 +94,7 @@ export function BoardEditableEntryRow({
   function handleSaveChecklistMeta() {
     const parsed = parseAmountInput(amountText);
     const dueAt = date
-      ? new Date(`${date}T09:00:00`).toISOString()
+      ? seoulIsoFromDateAndTime(date, "09:00")
       : null;
     const currentDate = toDateValue(entry.due_at);
     const currentAmount = getPlannedAmount(entry);
@@ -119,9 +122,7 @@ export function BoardEditableEntryRow({
 
     if (variant === "checklist") {
       const parsed = parseAmountInput(amountText);
-      const dueAt = date
-        ? new Date(`${date}T09:00:00`).toISOString()
-        : null;
+      const dueAt = date ? seoulIsoFromDateAndTime(date, "09:00") : null;
       startTransition(async () => {
         await updateBoardChecklistItem(boardId, entry.id, {
           content: trimmed,
@@ -138,7 +139,7 @@ export function BoardEditableEntryRow({
     let dueAt: string | null | undefined = undefined;
     if (variant === "schedule") {
       if (!date) return;
-      dueAt = new Date(`${date}T${time}:00`).toISOString();
+      dueAt = seoulIsoFromDateAndTime(date, time);
     }
 
     startTransition(async () => {
@@ -155,7 +156,8 @@ export function BoardEditableEntryRow({
   }
 
   function handleDelete() {
-    if (!confirm("삭제할까요?")) return;
+    const label = variant === "schedule" ? "일정" : "항목";
+    if (!confirm(`${label}을 삭제할까요?`)) return;
     startTransition(async () => {
       await deleteBoardLinkedEntry(entry.id, boardId);
       refresh();
@@ -223,6 +225,7 @@ export function BoardEditableEntryRow({
             onClick={() => {
               setContent(entry.content);
               setDate(toDateValue(entry.due_at));
+              setTime(toTimeValue(entry.due_at));
               setAmountText(amountToInputValue(getPlannedAmount(entry)));
               setIsEditing(false);
             }}
@@ -254,11 +257,7 @@ export function BoardEditableEntryRow({
       <div className="min-w-0 flex-1 text-sm">
         {variant === "schedule" && entry.due_at && (
           <span className="tabular-nums text-muted-foreground">
-            {new Date(entry.due_at).toLocaleTimeString("ko-KR", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })}{" "}
+            {seoulTimeInputFromIso(entry.due_at)}{" "}
           </span>
         )}
         <span
@@ -304,6 +303,32 @@ export function BoardEditableEntryRow({
             size="icon"
             className="h-7 w-7 text-muted-foreground"
             onClick={() => setIsEditing(true)}
+            aria-label="수정"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={handleDelete}
+            disabled={isPending}
+            aria-label="삭제"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+      {!showCheckbox && showActions && (
+        <div className="flex shrink-0 gap-0.5 opacity-100 md:opacity-0 md:pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground"
+            onClick={() => setIsEditing(true)}
+            disabled={isPending}
             aria-label="수정"
           >
             <Pencil className="h-3.5 w-3.5" />

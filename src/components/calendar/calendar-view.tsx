@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createEntry } from "@/actions/entries";
 import {
   CalendarDayOverflow,
@@ -10,11 +10,11 @@ import {
   CALENDAR_DAY_EVENT_LIMIT,
   sortCalendarDayEntries,
 } from "@/components/calendar/calendar-entry-row";
-import { TYPE_LABELS } from "@/lib/classify";
 import { EntryList } from "@/components/entries/entry-list";
 import { SectionCard } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { Category, Entry } from "@/lib/types";
 import {
   addSeoulMonths,
@@ -59,16 +59,21 @@ export function CalendarView({
   const router = useRouter();
   const dayDetailRef = useRef<HTMLElement>(null);
   const [selectedDayKey, setSelectedDayKey] = useState(todayKey);
-  const [dayDetailExpanded, setDayDetailExpanded] = useState(false);
+  const [dayDetailExpanded, setDayDetailExpanded] = useState(true);
   const [scheduleText, setScheduleText] = useState("");
   const [todoText, setTodoText] = useState("");
+  const [todoDueDate, setTodoDueDate] = useState("");
   const [memoText, setMemoText] = useState("");
+  const [showTodoForm, setShowTodoForm] = useState(false);
+  const [showMemoForm, setShowMemoForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [todoError, setTodoError] = useState<string | null>(null);
   const [memoError, setMemoError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isTodoPending, startTodoTransition] = useTransition();
   const [isMemoPending, startMemoTransition] = useTransition();
+  const todoInputRef = useRef<HTMLInputElement>(null);
+  const memoInputRef = useRef<HTMLInputElement>(null);
 
   const cells = useMemo(
     () => buildSeoulCalendarCells(year, month0),
@@ -84,16 +89,78 @@ export function CalendarView({
 
   const defaultCategoryId = categories[0]?.id ?? "";
 
+  useEffect(() => {
+    if (showTodoForm) {
+      setTodoDueDate((prev) => prev || selectedDayKey);
+      todoInputRef.current?.focus();
+    }
+  }, [showTodoForm, selectedDayKey]);
+
+  useEffect(() => {
+    if (showMemoForm) {
+      memoInputRef.current?.focus();
+    }
+  }, [showMemoForm]);
+
+  function toggleTodoForm() {
+    setShowTodoForm((prev) => {
+      if (prev) {
+        setTodoText("");
+        setTodoDueDate("");
+        setTodoError(null);
+      } else {
+        setTodoDueDate(selectedDayKey);
+      }
+      return !prev;
+    });
+  }
+
+  function toggleMemoForm() {
+    setShowMemoForm((prev) => {
+      if (prev) {
+        setMemoText("");
+        setMemoError(null);
+      }
+      return !prev;
+    });
+  }
+
+  function renderAddToggle(
+    expanded: boolean,
+    onToggle: () => void,
+    label: string,
+  ) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        onClick={onToggle}
+        aria-label={label}
+        aria-expanded={expanded}
+      >
+        <Plus
+          className={cn("h-4 w-4 transition-transform", expanded && "rotate-45")}
+        />
+      </Button>
+    );
+  }
+
   const selectedDayEntries = useMemo(() => {
     if (!selectedDayKey) return [];
     return sortCalendarDayEntries(entriesByDay[selectedDayKey] ?? []);
   }, [selectedDayKey, entriesByDay]);
 
   function selectDay(dayKey: string) {
-    if (dayKey !== selectedDayKey) {
-      setDayDetailExpanded(false);
-    }
     setSelectedDayKey(dayKey);
+    setDayDetailExpanded(true);
+    requestAnimationFrame(() => {
+      dayDetailRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    });
   }
 
   function expandDayDetail(dayKey: string) {
@@ -161,11 +228,13 @@ export function CalendarView({
           content: trimmed,
           type: "todo",
           categoryId: defaultCategoryId,
-          dueAt: selectedDayKey
-            ? new Date(`${selectedDayKey}T09:00:00+09:00`).toISOString()
+          dueAt: todoDueDate
+            ? new Date(`${todoDueDate}T09:00:00+09:00`).toISOString()
             : null,
         });
         setTodoText("");
+        setTodoDueDate("");
+        setShowTodoForm(false);
         router.refresh();
       } catch (err) {
         setTodoError(
@@ -187,11 +256,9 @@ export function CalendarView({
           content: trimmed,
           type: "memo",
           categoryId: defaultCategoryId,
-          dueAt: selectedDayKey
-            ? new Date(`${selectedDayKey}T09:00:00+09:00`).toISOString()
-            : null,
         });
         setMemoText("");
+        setShowMemoForm(false);
         router.refresh();
       } catch (err) {
         setMemoError(
@@ -340,27 +407,14 @@ export function CalendarView({
           </button>
 
           {dayDetailExpanded ? (
-            <ul className="mt-3 space-y-1">
-              {selectedDayEntries.map((entry) => (
-                <li
-                  key={entry.id}
-                  className="rounded-lg border border-border/50 bg-muted/20 px-2 py-1"
-                >
-                  <CalendarEntryRow entry={entry} variant="full" />
-                  <p className="mt-0.5 pl-2.5 text-[10px] text-muted-foreground">
-                    {TYPE_LABELS[entry.type]}
-                    {entry.status === "done" ? " · 완료" : ""}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {selectedDayEntries.length > CALENDAR_DAY_EVENT_LIMIT
-                ? `+${selectedDayEntries.length - CALENDAR_DAY_EVENT_LIMIT}건 더 있습니다. 펼치기를 눌러 전체를 확인하세요.`
-                : "펼치기를 눌러 항목 전체를 확인하세요."}
-            </p>
-          )}
+            <div className="mt-3">
+              <EntryList
+                entries={selectedDayEntries}
+                categories={categories}
+                variant="cards"
+              />
+            </div>
+          ) : null}
         </section>
       )}
 
@@ -409,49 +463,71 @@ export function CalendarView({
         title={`할 일 (${todos.length})`}
         className="mt-6"
         contentClassName="p-3"
+        headerActions={renderAddToggle(showTodoForm, toggleTodoForm, "할 일 추가")}
       >
-        <form onSubmit={handleAddTodo} className="mb-3 flex gap-2">
-          <Input
-            id="calendar-todo-input"
-            name="todo"
-            autoComplete="off"
-            value={todoText}
-            onChange={(e) => {
-              setTodoText(e.target.value);
-              setTodoError(null);
-            }}
-            placeholder={
-              selectedDayKey
-                ? `${formatDayLabel(selectedDayKey)} 마감 할 일…`
-                : "할 일 추가… Enter 저장"
-            }
-            disabled={isTodoPending || !defaultCategoryId}
-            className="flex-1"
-            aria-label="할 일 추가"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={isTodoPending || !todoText.trim() || !defaultCategoryId}
-            aria-label="할 일 추가"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </form>
-        {selectedDayKey && (
-          <p className="mb-2 text-xs text-muted-foreground">
-            선택한 날짜({formatDayLabel(selectedDayKey)})를 마감일로 저장합니다.
-          </p>
-        )}
-        {todoError && (
-          <p className="mb-2 text-sm text-destructive" role="alert">
-            {todoError}
-          </p>
+        {showTodoForm && (
+          <form onSubmit={handleAddTodo} className="mb-3 space-y-2">
+            <Input
+              ref={todoInputRef}
+              id="calendar-todo-input"
+              name="todo"
+              autoComplete="off"
+              value={todoText}
+              onChange={(e) => {
+                setTodoText(e.target.value);
+                setTodoError(null);
+              }}
+              placeholder="할 일 입력…"
+              disabled={isTodoPending || !defaultCategoryId}
+              className="w-full"
+              aria-label="할 일 추가"
+            />
+            <div className="space-y-1.5">
+              <Label htmlFor="calendar-todo-due" className="text-xs">
+                마감일
+              </Label>
+              <Input
+                id="calendar-todo-due"
+                name="todoDue"
+                type="date"
+                value={todoDueDate}
+                onChange={(e) => setTodoDueDate(e.target.value)}
+                disabled={isTodoPending}
+                className="w-auto"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={toggleTodoForm}
+              >
+                취소
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={
+                  isTodoPending || !todoText.trim() || !defaultCategoryId
+                }
+              >
+                {isTodoPending ? "저장 중…" : "저장"}
+              </Button>
+            </div>
+            {todoError && (
+              <p className="text-sm text-destructive" role="alert">
+                {todoError}
+              </p>
+            )}
+          </form>
         )}
         <EntryList
           entries={todos}
           categories={categories}
           variant="accent"
+          compactMeta={false}
+          hideType
           emptyState={{
             message: "진행 중인 할 일이 없습니다",
             entryType: "todo",
@@ -466,44 +542,50 @@ export function CalendarView({
         title={`메모 (${memos.length})`}
         className="mt-4"
         contentClassName="p-3"
+        headerActions={renderAddToggle(showMemoForm, toggleMemoForm, "메모 추가")}
       >
-        <form onSubmit={handleAddMemo} className="mb-3 flex gap-2">
-          <Input
-            id="calendar-memo-input"
-            name="memo"
-            autoComplete="off"
-            value={memoText}
-            onChange={(e) => {
-              setMemoText(e.target.value);
-              setMemoError(null);
-            }}
-            placeholder={
-              selectedDayKey
-                ? `${formatDayLabel(selectedDayKey)} 메모…`
-                : "메모 추가… Enter 저장"
-            }
-            disabled={isMemoPending || !defaultCategoryId}
-            className="flex-1"
-            aria-label="메모 추가"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={isMemoPending || !memoText.trim() || !defaultCategoryId}
-            aria-label="메모 추가"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </form>
-        {selectedDayKey && (
-          <p className="mb-2 text-xs text-muted-foreground">
-            선택한 날짜에 표시되도록 저장합니다.
-          </p>
-        )}
-        {memoError && (
-          <p className="mb-2 text-sm text-destructive" role="alert">
-            {memoError}
-          </p>
+        {showMemoForm && (
+          <form onSubmit={handleAddMemo} className="mb-3 space-y-2">
+            <Input
+              ref={memoInputRef}
+              id="calendar-memo-input"
+              name="memo"
+              autoComplete="off"
+              value={memoText}
+              onChange={(e) => {
+                setMemoText(e.target.value);
+                setMemoError(null);
+              }}
+              placeholder="메모 입력…"
+              disabled={isMemoPending || !defaultCategoryId}
+              className="w-full"
+              aria-label="메모 추가"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={toggleMemoForm}
+              >
+                취소
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={
+                  isMemoPending || !memoText.trim() || !defaultCategoryId
+                }
+              >
+                {isMemoPending ? "저장 중…" : "저장"}
+              </Button>
+            </div>
+            {memoError && (
+              <p className="text-sm text-destructive" role="alert">
+                {memoError}
+              </p>
+            )}
+          </form>
         )}
         <EntryList
           entries={memos}

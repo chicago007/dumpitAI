@@ -12,6 +12,7 @@ import { PROJECT_LABEL } from "@/lib/project-labels";
 import { parseBudgetAmount } from "@/lib/board-templates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import type { Category, Space } from "@/lib/types";
@@ -221,16 +222,15 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
                   </div>
                   <div className="space-y-1.5">
                     <Label>계절</Label>
-                    <select
+                    <NativeSelect
                       value={season}
                       onChange={(e) => setSeason(e.target.value)}
-                      className="flex h-10 w-full rounded-md border border-input px-3 text-sm"
                     >
                       <option value="봄">봄</option>
                       <option value="여름">여름</option>
                       <option value="가을">가을</option>
                       <option value="겨울">겨울</option>
-                    </select>
+                    </NativeSelect>
                   </div>
                 </>
               )}

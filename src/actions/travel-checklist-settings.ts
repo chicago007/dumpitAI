@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   cloneTemplate,
   DEFAULT_TRAVEL_CHECKLIST_TEMPLATE,
@@ -32,9 +32,7 @@ function isValidTemplate(data: unknown): data is TravelChecklistGroup[] {
 export async function getTravelChecklistTemplate(): Promise<TravelChecklistGroup[]> {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) return cloneTemplate();
 
     const { data, error } = await supabase
@@ -66,9 +64,7 @@ export async function saveTravelChecklistTemplate(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { error } = await supabase.from("user_settings").upsert({

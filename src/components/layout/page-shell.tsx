@@ -62,6 +62,7 @@ interface SectionCardProps {
   accentColor?: string;
   accentIcon?: React.ReactNode;
   plain?: boolean;
+  headerActions?: React.ReactNode;
 }
 
 export function SectionCard({
@@ -74,6 +75,7 @@ export function SectionCard({
   accentColor,
   accentIcon,
   plain = false,
+  headerActions,
 }: SectionCardProps) {
   const showAccent = !plain && accentColor;
 
@@ -98,19 +100,26 @@ export function SectionCard({
           )}
         >
           {title && (
-            <div className="flex items-center gap-2">
-              {showAccent && accentIcon && (
-                <span
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                  style={{
-                    backgroundColor: `${accentColor}18`,
-                    color: accentColor,
-                  }}
-                >
-                  {accentIcon}
-                </span>
-              )}
-              <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                {showAccent && accentIcon && (
+                  <span
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                    style={{
+                      backgroundColor: `${accentColor}18`,
+                      color: accentColor,
+                    }}
+                  >
+                    {accentIcon}
+                  </span>
+                )}
+                <h2 className="text-sm font-semibold text-foreground">
+                  {title}
+                </h2>
+              </div>
+              {headerActions ? (
+                <div className="shrink-0">{headerActions}</div>
+              ) : null}
             </div>
           )}
           {description && (

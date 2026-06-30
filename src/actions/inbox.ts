@@ -18,7 +18,7 @@ import {
   buildInboxPreview,
   previewToClassification,
 } from "@/lib/inbox-classify";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Category, Space } from "@/lib/types";
 import type { ViewSpace } from "@/lib/spaces";
 import { parseSpaceLinePrefix } from "@/lib/space-input";
@@ -123,6 +123,8 @@ function countCreated(
       case "expense":
         created.expense += 1;
         break;
+      case "period":
+        break;
     }
   }
 
@@ -188,9 +190,7 @@ export async function previewInboxInput(
   text: string,
 ): Promise<InboxPreviewResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const trimmed = text.trim();
@@ -206,9 +206,7 @@ export async function saveInboxPreview(
   preview: InboxPreviewResult,
 ): Promise<InboxProcessResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const viewSpace = await getActiveSpace();

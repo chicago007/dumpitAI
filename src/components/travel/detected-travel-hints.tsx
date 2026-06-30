@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { Entry } from "@/lib/types";
+import { Button } from "@/components/ui/button";
 import {
   type DetectedTravelEntry,
   formatDepartureLabel,
@@ -22,10 +23,10 @@ export function DetectedTravelHints({
 
   return (
     <section className="mb-8 space-y-4">
-      <h2 className="text-sm font-semibold text-slate-700">
+      <h2 className="text-sm font-semibold text-foreground">
         여행 메모를 발견했어요
       </h2>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         저장한 메모에서 여행 일정을 찾았습니다. 체크리스트를 만들어 준비
         상태를 확인하세요.
       </p>
@@ -66,12 +67,16 @@ function DetectedTravelHintCard({
   }
 
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-xs font-medium text-amber-900">메모에서 감지</p>
-          <h3 className="mt-1 font-semibold text-slate-800">{entry.content}</h3>
-          <p className="mt-1 text-xs text-slate-600">
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            메모에서 감지
+          </p>
+          <h3 className="mt-1 font-semibold text-foreground">
+            {entry.content}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             {context.departureDate &&
               formatDepartureLabel(context.departureDate)}
             {context.departureDate && " · "}
@@ -86,16 +91,16 @@ function DetectedTravelHintCard({
 
       {pendingCount > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-xs font-semibold text-amber-800">
+          <p className="mb-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
             아직 준비 안 한 것 ({pendingCount})
           </p>
-          <ul className="space-y-1 text-sm text-slate-700">
+          <ul className="space-y-1 text-sm text-foreground">
             {pendingItems.slice(0, 6).map(({ item }) => (
               <li key={item.id}>· {item.label}</li>
             ))}
           </ul>
           {pendingCount > 6 && (
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               + {pendingCount - 6}개 더
             </p>
           )}
@@ -103,17 +108,17 @@ function DetectedTravelHintCard({
       )}
 
       {error && (
-        <p className="mt-2 text-xs text-red-600" role="alert">{error}</p>
+        <p className="mt-2 text-xs text-destructive" role="alert">{error}</p>
       )}
 
-      <button
+      <Button
         type="button"
         onClick={handleCreatePlan}
         disabled={isPending}
-        className="mt-4 w-full rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+        className="mt-4 w-full"
       >
         {isPending ? "생성 중…" : "할일 만들고 준비 시작"}
-      </button>
+      </Button>
     </div>
   );
 }

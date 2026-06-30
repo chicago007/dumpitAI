@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { buildTravelMetadata } from "@/lib/travel";
 import {
   buildTravelTitle,
@@ -30,9 +30,7 @@ export async function createTravelPlan(input: {
   season: string;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const ctx = parseTravelContext(
@@ -133,9 +131,7 @@ export async function createTravelPlanFromEntry(
   travelCategoryId: string,
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { data: entry, error: fetchError } = await supabase

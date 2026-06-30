@@ -63,3 +63,58 @@ export function buildSeoulCalendarCells(year: number, month0: number) {
     return { key, parts, inMonth: parts.month0 === month0 };
   });
 }
+
+/** 달력 그리드(42칸)에 보이는 전체 날짜 범위 — 이전/다음 달 overflow 포함 */
+export function getSeoulCalendarGridRange(year: number, month0: number) {
+  const cells = buildSeoulCalendarCells(year, month0);
+  const firstKey = cells[0]?.key;
+  const lastKey = cells[cells.length - 1]?.key;
+  if (!firstKey || !lastKey) {
+    const { start, end } = getSeoulMonthRange(year, month0);
+    return {
+      start,
+      end,
+      startKey: getSeoulDateKeyFromIso(start.toISOString()),
+      endKey: getSeoulDateKeyFromIso(end.toISOString()),
+    };
+  }
+  return {
+    start: new Date(`${firstKey}T00:00:00+09:00`),
+    end: new Date(`${lastKey}T23:59:59+09:00`),
+    startKey: firstKey,
+    endKey: lastKey,
+  };
+}
+
+/** date input(YYYY-MM-DD) + time input(HH:mm) → ISO (서울 기준) */
+export function seoulIsoFromDateAndTime(date: string, time: string) {
+  return new Date(`${date}T${time}:00+09:00`).toISOString();
+}
+
+export function seoulDateInputFromIso(iso: string | null | undefined) {
+  if (!iso) return "";
+  return getSeoulDateKeyFromIso(iso);
+}
+
+export function seoulTimeInputFromIso(iso: string | null | undefined) {
+  if (!iso) return "09:00";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SEOUL_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "09";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${hour}:${minute}`;
+}
+
+export function formatSeoulDayHeader(dayKey: string) {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  return seoulCalendarDate(y, m - 1, d).toLocaleDateString("ko-KR", {
+    timeZone: SEOUL_TZ,
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  });
+}

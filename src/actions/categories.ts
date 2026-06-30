@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveSpace } from "@/actions/space";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { categorySpaceFromName, type Space, type ViewSpace } from "@/lib/spaces";
 import type { Category } from "@/lib/types";
 
@@ -113,9 +113,7 @@ const PERSONAL_CATEGORIES = [
 
 export async function seedDefaultCategoriesIfNeeded() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) return;
 
@@ -192,9 +190,7 @@ export async function createCategory(input: {
   keywords?: string[];
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const space = await getActiveSpace();
@@ -252,9 +248,7 @@ export async function updateCategory(
 
 export async function deleteCategory(id: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { data: category } = await supabase

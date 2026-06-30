@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import Link from "next/link";
 import type { BoardWithProgress } from "@/actions/boards";
 import { toggleEntryDone } from "@/actions/entries";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PROJECT_LABEL } from "@/lib/project-labels";
 import {
   BOARD_PROJECT_TYPE_LABELS,
@@ -27,7 +28,9 @@ export function ActiveProjectBoards({ boards }: ActiveProjectBoardsProps) {
     <section className="mb-8 space-y-4">
       {travelBoards.length > 0 && (
         <>
-          <h2 className="text-sm font-semibold text-slate-700">여행 준비 중</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            여행 준비 중
+          </h2>
           {travelBoards.map((board) => (
             <ProjectBoardCard key={board.id} board={board} />
           ))}
@@ -38,8 +41,8 @@ export function ActiveProjectBoards({ boards }: ActiveProjectBoardsProps) {
           <h2
             className={
               travelBoards.length > 0
-                ? "pt-2 text-sm font-semibold text-slate-700"
-                : "text-sm font-semibold text-slate-700"
+                ? "pt-2 text-sm font-semibold text-foreground"
+                : "text-sm font-semibold text-foreground"
             }
           >
             {PROJECT_LABEL} 진행 중
@@ -70,11 +73,11 @@ function ProjectBoardCard({ board }: { board: BoardWithProgress }) {
   }
 
   return (
-    <div className="rounded-xl border border-sky-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-border/60 bg-card p-4 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-slate-800">{board.name}</h3>
-          <p className="mt-1 text-xs text-slate-500">
+          <h3 className="font-semibold text-foreground">{board.name}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             {typeLabel}
             {season && ` · ${seasonLabel(season as TravelSeason)}`}
             {" · "}준비 {board.done}/{board.total}
@@ -82,7 +85,7 @@ function ProjectBoardCard({ board }: { board: BoardWithProgress }) {
         </div>
         <Link
           href={`/boards/${board.id}`}
-          className="text-xs font-medium text-sky-700 hover:text-sky-900"
+          className="text-xs font-medium text-primary hover:underline"
         >
           {PROJECT_LABEL}에서 보기
         </Link>
@@ -90,25 +93,25 @@ function ProjectBoardCard({ board }: { board: BoardWithProgress }) {
 
       {pending.length > 0 && (
         <div className="mt-3">
-          <p className="mb-2 text-xs font-semibold text-amber-800">
+          <p className="mb-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
             아직 준비 안 한 것 ({pending.length})
           </p>
           <ul className="space-y-1.5">
             {pending.slice(0, 8).map((entry) => (
               <li key={entry.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
+                  size="sm"
                   checked={false}
                   disabled={isPending}
-                  onChange={() => handleToggle(entry.id)}
-                  className="rounded border-slate-300"
+                  onCheckedChange={() => handleToggle(entry.id)}
+                  aria-label={entry.content}
                 />
-                <span className="text-slate-700">{entry.content}</span>
+                <span className="text-foreground">{entry.content}</span>
               </li>
             ))}
           </ul>
           {pending.length > 8 && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               + {pending.length - 8}개 더…
             </p>
           )}
@@ -116,7 +119,7 @@ function ProjectBoardCard({ board }: { board: BoardWithProgress }) {
       )}
 
       {pending.length === 0 && board.total > 0 && (
-        <p className="mt-3 text-sm text-emerald-700">
+        <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">
           모든 준비가 완료되었습니다!
         </p>
       )}

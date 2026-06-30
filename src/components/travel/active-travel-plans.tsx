@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import Link from "next/link";
 import type { Entry } from "@/lib/types";
 import type { TravelChecklistGroup } from "@/lib/travel-checklist-template";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   buildTravelPlanStatus,
   formatDepartureLabel,
@@ -29,7 +30,7 @@ export function ActiveTravelPlans({
 
   return (
     <section className="mb-8 space-y-4">
-      <h2 className="text-sm font-semibold text-slate-700">여행 준비 중</h2>
+      <h2 className="text-sm font-semibold text-foreground">여행 준비 중</h2>
       {plans.map((plan) => (
         <TravelPlanCard
           key={plan.id}
@@ -87,11 +88,11 @@ function TravelPlanCard({
   }
 
   return (
-    <div className="rounded-xl border border-sky-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-border/60 bg-card p-4 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-slate-800">{plan.content}</h3>
-          <p className="mt-1 text-xs text-slate-500">
+          <h3 className="font-semibold text-foreground">{plan.content}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             {plan.due_at && formatDepartureLabel(new Date(plan.due_at))}
             {season && ` · ${seasonLabel(season as TravelSeason)}`}
             {" · "}준비 {status.preparedCount}/{status.preparedCount + status.pendingCount}
@@ -99,7 +100,7 @@ function TravelPlanCard({
         </div>
         <Link
           href="/boards"
-          className="text-xs font-medium text-sky-700 hover:text-sky-900"
+          className="text-xs font-medium text-primary hover:underline"
         >
           {PROJECT_LABEL}에서 보기
         </Link>
@@ -107,25 +108,25 @@ function TravelPlanCard({
 
       {status.pendingCount > 0 && (
         <div className="mt-3">
-          <p className="mb-2 text-xs font-semibold text-amber-800">
+          <p className="mb-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
             아직 준비 안 한 것 ({status.pendingCount})
           </p>
           <ul className="space-y-1.5">
             {status.pendingItems.slice(0, 8).map(({ item, entryId }) => (
               <li key={item.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
+                  size="sm"
                   checked={false}
                   disabled={isPending || !entryId}
-                  onChange={() => entryId && handleToggle(entryId, true)}
-                  className="rounded border-slate-300"
+                  onCheckedChange={() => entryId && handleToggle(entryId, true)}
+                  aria-label={item.label}
                 />
-                <span className="text-slate-700">{item.label}</span>
+                <span className="text-foreground">{item.label}</span>
               </li>
             ))}
           </ul>
           {status.pendingCount > 8 && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               + {status.pendingCount - 8}개 더…
             </p>
           )}
@@ -133,7 +134,7 @@ function TravelPlanCard({
       )}
 
       {status.pendingCount === 0 && (
-        <p className="mt-3 text-sm text-emerald-700">
+        <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">
           모든 준비가 완료되었습니다!
         </p>
       )}

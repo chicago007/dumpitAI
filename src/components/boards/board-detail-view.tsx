@@ -13,6 +13,7 @@ import { BoardExpenseTab } from "@/components/boards/board-expense-tab";
 import { BoardAiTab } from "@/components/boards/board-ai-tab";
 import { BoardTabNav } from "@/components/boards/board-tab-nav";
 import { resolveBoardTabs } from "@/lib/board-tabs";
+import { formatBoardDateRange } from "@/lib/board-templates";
 
 interface BoardDetailViewProps {
   board: Board;
@@ -91,6 +92,11 @@ export function BoardDetailView({
         {activeKind === "schedule" && (
           <BoardScheduleTab
             boardId={board.id}
+            boardName={board.name}
+            projectPeriod={formatBoardDateRange(
+              board.start_date,
+              board.end_date,
+            )}
             entries={entries}
             defaultCategoryId={defaultCategoryId}
           />

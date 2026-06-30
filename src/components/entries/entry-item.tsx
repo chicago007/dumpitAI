@@ -27,13 +27,15 @@ import {
 } from "@/lib/travel";
 import { deleteEntry, moveEntryToSpace, toggleEntryDone, updateEntry } from "@/actions/entries";
 import { getEntryTypeTheme } from "@/lib/entry-type-theme";
-import { SPACE_LABELS, type Space } from "@/lib/spaces";
+import { getEntrySpace, SPACE_LABELS, type Space } from "@/lib/spaces";
 
 interface EntryItemProps {
   entry: Entry;
   categories: Category[];
   showCheckbox?: boolean;
   hideType?: boolean;
+  showTypeBadge?: boolean;
+  showSpaceBadge?: boolean;
   cardRow?: boolean;
   accentRow?: boolean;
   compactMeta?: boolean;
@@ -56,6 +58,8 @@ export function EntryItem({
   categories,
   showCheckbox = true,
   hideType = false,
+  showTypeBadge = false,
+  showSpaceBadge = false,
   cardRow = false,
   accentRow = false,
   compactMeta = false,
@@ -322,6 +326,7 @@ export function EntryItem({
   }
 
   const typeTheme = getEntryTypeTheme(entry.type);
+  const entrySpace = getEntrySpace(entry);
   const compactMetaText = [
     category?.name,
     entry.due_at ? formatEntryDue(entry.due_at) : null,
@@ -366,6 +371,22 @@ export function EntryItem({
         {entry.content}
       </p>
       <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+        {showSpaceBadge && (
+          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 font-medium">
+            {SPACE_LABELS[entrySpace]}
+          </span>
+        )}
+        {showTypeBadge && (
+          <span
+            className="shrink-0 rounded-md px-1.5 py-0.5 font-medium"
+            style={{
+              backgroundColor: `${typeTheme.color}18`,
+              color: typeTheme.color,
+            }}
+          >
+            {typeTheme.label}
+          </span>
+        )}
         {compactMeta && compactMetaText ? (
           <span className="shrink-0 tabular-nums">{compactMetaText}</span>
         ) : (
@@ -382,7 +403,7 @@ export function EntryItem({
                 <span className="truncate">{category.name}</span>
               </span>
             )}
-            {!hideType && (
+            {!hideType && !showTypeBadge && (
               <span className="hidden shrink-0 sm:inline">
                 {TYPE_LABELS[entry.type]}
               </span>

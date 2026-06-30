@@ -1,4 +1,4 @@
-import { EntryList } from "@/components/entries/entry-list";
+import { CompletedEntriesSection } from "@/components/entries/completed-entries-section";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { getActiveSpace } from "@/actions/space";
 import { getDoneStats } from "@/actions/entries";
@@ -44,11 +44,12 @@ export default async function DonePage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-3">
-        <EntryList
+        <CompletedEntriesSection
           entries={doneResult.data}
           categories={categoriesResult.data}
-          showCheckbox
-          variant="accent"
+          viewSpace={activeSpace}
+          contentClassName="space-y-4"
+          emptyMessage="완료한 항목이 없습니다."
         />
       </div>
     </main>

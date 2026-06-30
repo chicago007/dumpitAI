@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveSpace } from "@/actions/space";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   appendToGroupOrder,
   getChecklistItemOrder,
@@ -27,6 +27,7 @@ import type {
 } from "@/lib/board-types";
 import { BOARD_TABS } from "@/lib/board-types";
 import { defaultBoardTabs, resolveBoardTabs } from "@/lib/board-tabs";
+import { materializeExpenseCategories } from "@/lib/board-expense-categories";
 import type { ViewSpace } from "@/lib/spaces";
 import type { Board, Entry, Space } from "@/lib/types";
 
@@ -109,9 +110,7 @@ export async function reorderChecklistItems(
   orderedEntryIds: string[],
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const board = await getBoard(boardId);
@@ -379,9 +378,7 @@ export async function createBoardWithWizard(input: {
   skipItems?: boolean;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const viewSpace = input.space ?? (await getActiveSpace());
@@ -564,9 +561,7 @@ export async function addChecklistItem(
   },
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const board = await getBoard(boardId);
@@ -631,9 +626,7 @@ export async function updateBoardChecklistItem(
   },
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const board = await getBoard(boardId);
@@ -744,9 +737,7 @@ export async function importChecklistRows(
   categoryId: string,
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const validRows = rows
@@ -966,6 +957,11 @@ export async function submitBoardClassifiedInput(
   content: string,
   categoryId: string,
   defaultGroupId?: string,
+  options?: {
+    dueAt?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+  },
 ) {
   const { classifyBoardInput } = await import("@/lib/board-classify");
   const result = classifyBoardInput(content);
@@ -1000,8 +996,9 @@ export async function submitBoardClassifiedInput(
   );
 
   switch (result.kind) {
-    case "schedule":
+    case "schedule": {
       const dueAt =
+        options?.dueAt ??
         result.dueAt?.toISOString() ??
         new Date(`${new Date().toISOString().slice(0, 10)}T09:00:00`).toISOString();
       await addBoardSchedule(
@@ -1011,6 +1008,17 @@ export async function submitBoardClassifiedInput(
         categoryId,
       );
       break;
+    }
+    case "period": {
+      if (result.startDate && result.endDate) {
+        await updateBoardDateRange(
+          boardId,
+          options?.startDate ?? result.startDate,
+          options?.endDate ?? result.endDate,
+        );
+      }
+      break;
+    }
     case "memo":
       await addBoardMemo(boardId, result.cleanedContent, categoryId);
       break;
@@ -1074,9 +1082,18 @@ export async function submitBoardClassifiedInput(
 export async function applyBoardPreviewItem(
   boardId: string,
   item: {
-    kind: "checklist" | "schedule" | "memo" | "budget" | "expense" | "todo";
+    kind:
+      | "checklist"
+      | "schedule"
+      | "period"
+      | "memo"
+      | "budget"
+      | "expense"
+      | "todo";
     content: string;
     dueAt: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
     amount: number | null;
     currency: string;
     groupName: string | null;
@@ -1118,6 +1135,12 @@ export async function applyBoardPreviewItem(
         item.dueAt ??
         new Date(`${new Date().toISOString().slice(0, 10)}T09:00:00`).toISOString();
       await addBoardSchedule(boardId, item.content, dueAt, categoryId);
+      break;
+    }
+    case "period": {
+      if (item.startDate && item.endDate) {
+        await updateBoardDateRange(boardId, item.startDate, item.endDate);
+      }
       break;
     }
     case "memo":
@@ -1185,9 +1208,7 @@ export async function addAiSuggestionsToChecklist(
   categoryId: string,
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const board = await getBoard(boardId);
@@ -1292,9 +1313,7 @@ export async function addBoardMemo(
   categoryId: string,
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const board = await getBoard(boardId);
@@ -1322,9 +1341,7 @@ export async function addBoardSchedule(
   categoryId: string,
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const board = await getBoard(boardId);
@@ -1439,6 +1456,130 @@ export async function deleteBoardExpense(boardId: string, expenseId: string) {
   revalidateBoardPaths(boardId);
 }
 
+async function persistBoardExpenseCategories(
+  boardId: string,
+  metadata: BoardMetadata,
+  categories: BoardBudgetCategory[],
+  expenses?: BoardExpense[],
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("boards")
+    .update({
+      metadata: {
+        ...metadata,
+        budgetCategories: categories,
+        ...(expenses ? { expenses } : {}),
+      },
+    })
+    .eq("id", boardId);
+
+  if (error) throw new Error(error.message);
+  revalidateBoardPaths(boardId);
+}
+
+export async function addBoardExpenseCategory(boardId: string, name: string) {
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("카테고리 이름을 입력해 주세요.");
+
+  const metadata = parseMetadata(board.metadata);
+  const categories = materializeExpenseCategories(metadata);
+
+  if (categories.some((c) => c.name === trimmed)) {
+    throw new Error("이미 있는 카테고리입니다.");
+  }
+
+  categories.push({ id: crypto.randomUUID(), name: trimmed, amount: 0 });
+  await persistBoardExpenseCategories(boardId, metadata, categories);
+}
+
+export async function updateBoardExpenseCategoryName(
+  boardId: string,
+  categoryId: string,
+  name: string,
+) {
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("카테고리 이름을 입력해 주세요.");
+
+  const metadata = parseMetadata(board.metadata);
+  const categories = materializeExpenseCategories(metadata);
+  const target = categories.find((c) => c.id === categoryId);
+  if (!target) throw new Error("카테고리를 찾을 수 없습니다.");
+
+  if (
+    categories.some((c) => c.id !== categoryId && c.name === trimmed)
+  ) {
+    throw new Error("이미 있는 카테고리입니다.");
+  }
+
+  const oldName = target.name;
+  const nextCategories = categories.map((c) =>
+    c.id === categoryId ? { ...c, name: trimmed } : c,
+  );
+
+  const expenses = (metadata.expenses ?? []).map((e) =>
+    e.category === oldName ? { ...e, category: trimmed } : e,
+  );
+
+  await persistBoardExpenseCategories(
+    boardId,
+    metadata,
+    nextCategories,
+    expenses,
+  );
+}
+
+export async function deleteBoardExpenseCategory(
+  boardId: string,
+  categoryId: string,
+) {
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const metadata = parseMetadata(board.metadata);
+  const categories = materializeExpenseCategories(metadata);
+
+  if (categories.length <= 1) {
+    throw new Error("마지막 카테고리는 삭제할 수 없습니다.");
+  }
+
+  const target = categories.find((c) => c.id === categoryId);
+  if (!target) throw new Error("카테고리를 찾을 수 없습니다.");
+
+  const expenses = metadata.expenses ?? [];
+  const affected = expenses.filter((e) => e.category === target.name);
+
+  let nextCategories = categories.filter((c) => c.id !== categoryId);
+  let nextExpenses = expenses;
+
+  if (affected.length > 0) {
+    const fallbackName = "기타";
+    const hasFallback = nextCategories.some((c) => c.name === fallbackName);
+    if (!hasFallback) {
+      nextCategories = [
+        ...nextCategories,
+        { id: crypto.randomUUID(), name: fallbackName, amount: 0 },
+      ];
+    }
+    nextExpenses = expenses.map((e) =>
+      e.category === target.name ? { ...e, category: fallbackName } : e,
+    );
+  }
+
+  await persistBoardExpenseCategories(
+    boardId,
+    metadata,
+    nextCategories,
+    nextExpenses,
+  );
+}
+
 export async function updateChecklistGroupName(
   boardId: string,
   groupId: string,
@@ -1467,9 +1608,7 @@ export async function updateChecklistGroupName(
 
 export async function deleteChecklistGroup(boardId: string, groupId: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const board = await getBoard(boardId);
@@ -1549,9 +1688,7 @@ async function persistBoardTabs(boardId: string, tabs: BoardTabConfig[]) {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const board = await getBoard(boardId);
@@ -1597,9 +1734,7 @@ export async function addCustomBoardTab(boardId: string, label: string) {
   });
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { error } = await supabase
@@ -1668,9 +1803,7 @@ export async function updateBoardTabLabel(
         : g,
     );
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error("로그인이 필요합니다.");
 
     const { error } = await supabase
@@ -1710,9 +1843,7 @@ export async function deleteBoardTab(boardId: string, tabId: string) {
         (g) => g.id !== tab.checklistGroupId,
       );
       const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) throw new Error("로그인이 필요합니다.");
 
       await supabase
@@ -1725,14 +1856,45 @@ export async function deleteBoardTab(boardId: string, tabId: string) {
   }
 }
 
-export async function updateBoard(
+export async function updateBoardDateRange(
   boardId: string,
-  input: { name?: string; color?: string },
+  startDate: string | null,
+  endDate: string | null,
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
+  if (!user) throw new Error("로그인이 필요합니다.");
+
+  const { normalizeBoardDateRange } = await import("@/lib/board-date-range");
+  const normalized =
+    startDate && endDate
+      ? normalizeBoardDateRange(startDate, endDate)
+      : { startDate, endDate };
+
+  const { error } = await supabase
+    .from("boards")
+    .update({
+      start_date: normalized.startDate,
+      end_date: normalized.endDate,
+    })
+    .eq("id", boardId)
+    .eq("user_id", user.id);
+
+  if (error) throw new Error(error.message);
+  revalidateBoardPaths(boardId);
+}
+
+export async function updateBoard(
+  boardId: string,
+  input: {
+    name?: string;
+    color?: string;
+    startDate?: string | null;
+    endDate?: string | null;
+  },
+) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const updates: Record<string, unknown> = {};
@@ -1743,6 +1905,21 @@ export async function updateBoard(
   }
   if (input.color !== undefined) {
     updates.color = input.color;
+  }
+  if (input.startDate !== undefined || input.endDate !== undefined) {
+    const board = await getBoard(boardId);
+    if (!board) throw new Error("보드를 찾을 수 없습니다.");
+    const start = input.startDate ?? board.start_date;
+    const end = input.endDate ?? board.end_date;
+    if (start && end) {
+      const { normalizeBoardDateRange } = await import("@/lib/board-date-range");
+      const normalized = normalizeBoardDateRange(start, end);
+      updates.start_date = normalized.startDate;
+      updates.end_date = normalized.endDate;
+    } else {
+      updates.start_date = start;
+      updates.end_date = end;
+    }
   }
   if (Object.keys(updates).length === 0) return;
 
@@ -1758,9 +1935,7 @@ export async function updateBoard(
 
 export async function deleteBoard(id: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const { error: unlinkError } = await supabase

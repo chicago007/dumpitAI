@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   findTemplateItemByLabel,
   getTravelChecklistId,
@@ -8,9 +8,7 @@ import {
 /** 여행 표 항목과 일치하는 모든 엔트리를 여행 카테고리·체크리스트로 맞춤 (렌더 중 호출 가능) */
 export async function syncTravelChecklistEntries(travelCategoryId: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return;
 
   const { data: entries, error } = await supabase

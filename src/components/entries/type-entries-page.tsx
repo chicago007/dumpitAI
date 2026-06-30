@@ -89,7 +89,9 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
   const entriesResult = await loadEntries(
     type === "checklist"
       ? { type, space: activeSpace }
-      : { status: "active", type, space: activeSpace },
+      : type === "schedule"
+        ? { status: "active", type, space: activeSpace, excludeBoard: true }
+        : { status: "active", type, space: activeSpace },
   );
   const todoForTable =
     type === "checklist" && isPersonal

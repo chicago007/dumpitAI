@@ -18,6 +18,8 @@ import {
   saveInboxPreview,
 } from "@/actions/inbox";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -57,6 +59,7 @@ export interface SmartInputProps {
 function kindIcon(kind: InboxItemKind) {
   switch (kind) {
     case "schedule":
+    case "period":
       return Calendar;
     case "memo":
       return StickyNote;
@@ -70,16 +73,44 @@ function PreviewItemRow({
   isProjectBlock,
   onKindChange,
   onSpaceChange,
+  onDueAtChange,
+  onPeriodChange,
   showSpaceSelect,
 }: {
   item: InboxPreviewItem;
   isProjectBlock: boolean;
   onKindChange: (id: string, kind: InboxItemKind) => void;
   onSpaceChange?: (id: string, space: Space) => void;
+  onDueAtChange?: (id: string, dueAt: string | null) => void;
+  onPeriodChange?: (
+    id: string,
+    startDate: string | null,
+    endDate: string | null,
+  ) => void;
   showSpaceSelect?: boolean;
 }) {
   const Icon = kindIcon(item.kind);
   const kinds = isProjectBlock ? PROJECT_INBOX_KINDS : GLOBAL_INBOX_KINDS;
+  const scheduleDate = item.dueAt?.slice(0, 10) ?? "";
+  const scheduleTime = item.dueAt
+    ? `${item.dueAt.slice(11, 13)}:${item.dueAt.slice(14, 16)}`
+    : "09:00";
+
+  function handleScheduleDateChange(date: string) {
+    if (!onDueAtChange) return;
+    if (!date) {
+      onDueAtChange(item.id, null);
+      return;
+    }
+    const time = scheduleTime || "09:00";
+    onDueAtChange(item.id, new Date(`${date}T${time}:00`).toISOString());
+  }
+
+  function handleScheduleTimeChange(time: string) {
+    if (!onDueAtChange) return;
+    const date = scheduleDate || new Date().toISOString().slice(0, 10);
+    onDueAtChange(item.id, new Date(`${date}T${time}:00`).toISOString());
+  }
 
   return (
     <li className="flex flex-wrap items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5">
@@ -87,7 +118,9 @@ function PreviewItemRow({
       <div className="min-w-0 flex-1 space-y-1.5">
         <p className="text-sm">{item.content}</p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {item.dueAt && <span>날짜 {item.dueAt.slice(0, 10)}</span>}
+          {item.dueAt && item.kind !== "schedule" && item.kind !== "period" && (
+            <span>날짜 {item.dueAt.slice(0, 10)}</span>
+          )}
           {item.amount != null && item.amount > 0 && (
             <span>{item.amount.toLocaleString()}원</span>
           )}
@@ -95,11 +128,52 @@ function PreviewItemRow({
             {SPACE_LABELS[item.targetSpace]} · {INBOX_KIND_LABELS[item.kind]}
           </span>
         </div>
+        {item.kind === "period" && onPeriodChange && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="date"
+              value={item.startDate ?? ""}
+              onChange={(e) =>
+                onPeriodChange(item.id, e.target.value || null, item.endDate ?? null)
+              }
+              className="h-8 w-auto text-xs"
+              aria-label="시작일"
+            />
+            <span className="text-xs text-muted-foreground">~</span>
+            <Input
+              type="date"
+              value={item.endDate ?? ""}
+              onChange={(e) =>
+                onPeriodChange(item.id, item.startDate ?? null, e.target.value || null)
+              }
+              className="h-8 w-auto text-xs"
+              aria-label="종료일"
+            />
+          </div>
+        )}
+        {item.kind === "schedule" && onDueAtChange && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="date"
+              value={scheduleDate}
+              onChange={(e) => handleScheduleDateChange(e.target.value)}
+              className="h-8 w-auto text-xs"
+              aria-label="일정 날짜"
+            />
+            <Input
+              type="time"
+              value={scheduleTime}
+              onChange={(e) => handleScheduleTimeChange(e.target.value)}
+              className="h-8 w-auto text-xs"
+              aria-label="일정 시간"
+            />
+          </div>
+        )}
       </div>
-      <select
+      <NativeSelect
         value={item.kind}
         onChange={(e) => onKindChange(item.id, e.target.value as InboxItemKind)}
-        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+        className="h-8 w-auto rounded-md px-2 text-xs"
         aria-label="분류 변경"
       >
         {kinds.map((k) => (
@@ -107,19 +181,19 @@ function PreviewItemRow({
             {INBOX_KIND_LABELS[k]}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       {showSpaceSelect && onSpaceChange && (
-        <select
+        <NativeSelect
           value={item.targetSpace}
           onChange={(e) =>
             onSpaceChange(item.id, e.target.value as Space)
           }
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+          className="h-8 w-auto rounded-md px-2 text-xs"
           aria-label="공간 변경"
         >
           <option value="work">{SPACE_LABELS.work}</option>
           <option value="personal">{SPACE_LABELS.personal}</option>
-        </select>
+        </NativeSelect>
       )}
     </li>
   );
@@ -131,6 +205,8 @@ function PreviewPanel({
   onKindChange,
   onSpaceChange,
   onSpaceChangeAll,
+  onDueAtChange,
+  onPeriodChange,
   onConfirm,
   onCancel,
   isSaving,
@@ -140,6 +216,12 @@ function PreviewPanel({
   onKindChange: (id: string, kind: InboxItemKind) => void;
   onSpaceChange: (id: string, space: Space) => void;
   onSpaceChangeAll: (space: Space) => void;
+  onDueAtChange: (id: string, dueAt: string | null) => void;
+  onPeriodChange: (
+    id: string,
+    startDate: string | null,
+    endDate: string | null,
+  ) => void;
   onConfirm: () => void;
   onCancel: () => void;
   isSaving: boolean;
@@ -210,6 +292,8 @@ function PreviewPanel({
                 isProjectBlock={preview.isProjectBlock}
                 onKindChange={onKindChange}
                 onSpaceChange={onSpaceChange}
+                onDueAtChange={onDueAtChange}
+                onPeriodChange={onPeriodChange}
                 showSpaceSelect={preview.needsSpaceConfirm}
               />
             ))}
@@ -449,7 +533,7 @@ export function SmartInput({
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-violet-600" />
               <p className="text-xs text-muted-foreground sm:text-sm">
-                AI 자동 분류 · @할일 @일정 @메모 · @p 프로젝트
+                AI 자동 분류 · @할일 @일정 @메모 · @p 프로젝트 (줄마다 @일정 가능)
               </p>
             </div>
           )}
@@ -540,11 +624,28 @@ export function SmartInput({
           items={items}
           onKindChange={(id, kind) =>
             setItems((prev) =>
-              prev.map((item) =>
-                item.id === id
-                  ? { ...item, kind, tabLabel: INBOX_KIND_LABELS[kind] }
-                  : item,
-              ),
+              prev.map((item) => {
+                if (item.id !== id) return item;
+                const dueAt =
+                  kind === "schedule" && !item.dueAt
+                    ? new Date(
+                        `${new Date().toISOString().slice(0, 10)}T09:00:00`,
+                      ).toISOString()
+                    : item.dueAt;
+                const today = new Date().toISOString().slice(0, 10);
+                const startDate =
+                  kind === "period" && !item.startDate ? today : item.startDate;
+                const endDate =
+                  kind === "period" && !item.endDate ? today : item.endDate;
+                return {
+                  ...item,
+                  kind,
+                  dueAt,
+                  startDate,
+                  endDate,
+                  tabLabel: INBOX_KIND_LABELS[kind],
+                };
+              }),
             )
           }
           onSpaceChange={(id, space) =>
@@ -560,6 +661,20 @@ export function SmartInput({
             );
             setPreview((p) => (p ? { ...p, suggestedSpace: space } : p));
           }}
+          onDueAtChange={(id, dueAt) =>
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === id ? { ...item, dueAt } : item,
+              ),
+            )
+          }
+          onPeriodChange={(id, startDate, endDate) =>
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === id ? { ...item, startDate, endDate } : item,
+              ),
+            )
+          }
           onConfirm={handleConfirm}
           onCancel={() => {
             setPreview(null);
