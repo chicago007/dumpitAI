@@ -11,7 +11,6 @@ import {
   Menu,
   Plus,
   Settings,
-  Sparkles,
   StickyNote,
 } from "lucide-react";
 import { SpaceSwitcher } from "@/components/layout/space-switcher";
@@ -23,7 +22,7 @@ import { APP_NAME } from "@/lib/app-brand";
 import { ENTRY_TYPE_THEMES } from "@/lib/entry-type-theme";
 import { PROJECT_LABEL } from "@/lib/project-labels";
 import type { SidebarCounts } from "@/actions/entries";
-import type { Space } from "@/lib/spaces";
+import type { ViewSpace } from "@/lib/spaces";
 
 export type { SidebarCounts };
 
@@ -128,15 +127,10 @@ function SidebarContent({
   counts: SidebarCounts;
   pathname: string;
   onNavigate: () => void;
-  activeSpace: Space;
+  activeSpace: ViewSpace;
 }) {
   const primaryItems: NavItem[] = [
     { href: "/", label: "입력", icon: <Plus className="h-4 w-4" /> },
-    {
-      href: "/inbox",
-      label: "AI Inbox",
-      icon: <Sparkles className="h-4 w-4" />,
-    },
     {
       href: "/today",
       label: "오늘",
@@ -240,7 +234,7 @@ export function Sidebar({
   activeSpace,
 }: {
   counts: SidebarCounts;
-  activeSpace: Space;
+  activeSpace: ViewSpace;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);

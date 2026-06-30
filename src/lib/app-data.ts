@@ -2,6 +2,7 @@ import { getCategories, seedDefaultCategoriesIfNeeded } from "@/actions/categori
 import { getEntries } from "@/actions/entries";
 import { getActiveSpace } from "@/actions/space";
 import type { Category, Entry, Space } from "@/lib/types";
+import type { ViewSpace } from "@/lib/spaces";
 import { isSchemaSetupError } from "@/lib/supabase/errors";
 
 export type AppDataResult<T> =
@@ -9,7 +10,7 @@ export type AppDataResult<T> =
   | { ok: false; needsSetup: true };
 
 export async function loadCategories(
-  space?: Space,
+  space?: ViewSpace,
 ): Promise<AppDataResult<Category[]>> {
   try {
     const activeSpace = space ?? (await getActiveSpace());
@@ -30,7 +31,7 @@ export async function loadCategories(
 }
 
 export async function loadEntries(
-  filters?: Parameters<typeof getEntries>[0] & { space?: Space },
+  filters?: Parameters<typeof getEntries>[0] & { space?: ViewSpace },
 ): Promise<AppDataResult<Entry[]>> {
   try {
     const entries = await getEntries(filters);

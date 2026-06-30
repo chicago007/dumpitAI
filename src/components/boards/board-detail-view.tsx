@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Board, Category, Entry } from "@/lib/types";
 import type { BoardMetadata, BoardTab } from "@/lib/board-types";
-import { BOARD_TABS } from "@/lib/board-types";
 import { BoardDetailHeader } from "@/components/boards/board-detail-header";
 import { BoardCaptureInput } from "@/components/boards/board-capture-input";
 import { BoardChecklistTab } from "@/components/boards/board-checklist-tab";
@@ -12,8 +11,8 @@ import { BoardMemoTab } from "@/components/boards/board-memo-tab";
 import { BoardBudgetTab } from "@/components/boards/board-budget-tab";
 import { BoardExpenseTab } from "@/components/boards/board-expense-tab";
 import { BoardAiTab } from "@/components/boards/board-ai-tab";
-import { PROJECT_LABEL } from "@/lib/project-labels";
-import { cn } from "@/lib/utils";
+import { BoardTabNav } from "@/components/boards/board-tab-nav";
+import { resolveBoardTabs } from "@/lib/board-tabs";
 
 interface BoardDetailViewProps {
   board: Board;
@@ -34,8 +33,25 @@ export function BoardDetailView({
   total,
   defaultCategoryId,
 }: BoardDetailViewProps) {
-  const [tab, setTab] = useState<BoardTab>("checklist");
   const metadata = (board.metadata ?? {}) as BoardMetadata;
+  const tabs = useMemo(() => resolveBoardTabs(metadata), [metadata]);
+  const [activeTabId, setActiveTabId] = useState(tabs[0]?.id ?? "checklist");
+
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+  const activeKind: BoardTab = activeTab?.kind ?? "checklist";
+
+  const dedicatedGroupIds = useMemo(
+    () =>
+      tabs
+        .map((t) => t.checklistGroupId)
+        .filter((id): id is string => Boolean(id)),
+    [tabs],
+  );
+
+  function handleSaved(kind: BoardTab) {
+    const target = tabs.find((t) => t.kind === kind);
+    if (target) setActiveTabId(target.id);
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-4 md:py-5 space-y-4">
@@ -50,65 +66,53 @@ export function BoardDetailView({
         boardId={board.id}
         defaultCategoryId={defaultCategoryId}
         defaultGroupId={metadata.checklistGroups?.[0]?.id}
-        onSaved={(t) => setTab(t)}
+        onSaved={handleSaved}
       />
 
-      <nav
-        className="flex gap-1 overflow-x-auto pb-1 scrollbar-none"
-        aria-label={`${PROJECT_LABEL} 탭`}
-      >
-        {BOARD_TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              tab === t.id
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted/60 text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      <BoardTabNav
+        boardId={board.id}
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onSelect={setActiveTabId}
+      />
 
       <div className="rounded-xl border border-border/60 bg-card p-3 shadow-card min-h-[200px]">
-        {tab === "checklist" && (
+        {activeKind === "checklist" && (
           <BoardChecklistTab
             boardId={board.id}
             entries={entries}
             metadata={metadata}
             defaultCategoryId={defaultCategoryId}
             boardColor={board.color}
+            filterGroupId={activeTab?.checklistGroupId}
+            dedicatedGroupIds={dedicatedGroupIds}
           />
         )}
-        {tab === "schedule" && (
+        {activeKind === "schedule" && (
           <BoardScheduleTab
             boardId={board.id}
             entries={entries}
             defaultCategoryId={defaultCategoryId}
           />
         )}
-        {tab === "memo" && (
+        {activeKind === "memo" && (
           <BoardMemoTab
             boardId={board.id}
             entries={entries}
             defaultCategoryId={defaultCategoryId}
           />
         )}
-        {tab === "budget" && (
+        {activeKind === "budget" && (
           <BoardBudgetTab
             boardId={board.id}
             budgetTotal={board.budget_total ?? 0}
             metadata={metadata}
           />
         )}
-        {tab === "expense" && (
+        {activeKind === "expense" && (
           <BoardExpenseTab boardId={board.id} metadata={metadata} />
         )}
-        {tab === "ai" && <BoardAiTab board={board} />}
+        {activeKind === "ai" && <BoardAiTab board={board} />}
       </div>
     </div>
   );

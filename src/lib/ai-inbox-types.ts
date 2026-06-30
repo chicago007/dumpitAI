@@ -1,4 +1,6 @@
 /** Gemini Structured Output 분류 결과 */
+import type { Space } from "@/lib/spaces";
+
 export interface AiScheduleItem {
   title: string;
   start_date: string | null;
@@ -24,6 +26,7 @@ export interface InboxPreviewItem {
   rawLine: string;
   kind: InboxItemKind;
   content: string;
+  targetSpace: Space;
   dueAt: string | null;
   amount: number | null;
   currency: string;
@@ -36,6 +39,10 @@ export interface InboxPreviewResult {
   isProjectBlock: boolean;
   items: InboxPreviewItem[];
   originalText: string;
+  /** 전체 보기에서 공간을 추정했을 때 저장 전 확인 */
+  needsSpaceConfirm?: boolean;
+  /** 추정된 공간 (확인 UI용) */
+  suggestedSpace?: Space;
 }
 
 export interface InboxLog {

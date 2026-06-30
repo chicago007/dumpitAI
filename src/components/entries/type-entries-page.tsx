@@ -1,3 +1,4 @@
+import { EntryListHeader } from "@/components/entries/entry-list-header";
 import { EntryList } from "@/components/entries/entry-list";
 import { TravelPrepTodoGroups } from "@/components/todo/travel-prep-todo-groups";
 import { ChecklistTemplateEditor } from "@/components/checklist/checklist-template-editor";
@@ -14,7 +15,7 @@ import { getTravelChecklistTemplate } from "@/actions/travel-checklist-settings"
 import { getActiveTravelPlans } from "@/actions/travel-plan";
 import { getActiveSpace } from "@/actions/space";
 import { groupTravelPrepTodos } from "@/lib/travel-plan";
-import { SPACE_LABELS } from "@/lib/spaces";
+import { VIEW_SPACE_LABELS } from "@/lib/spaces";
 import type { Category, Entry, EntryType } from "@/lib/types";
 import Link from "next/link";
 
@@ -65,7 +66,7 @@ function groupEntriesByCategory(entries: Entry[], categories: Category[]) {
 export async function TypeEntriesPage({ type }: { type: EntryType }) {
   const label = TYPE_LABELS[type];
   const activeSpace = await getActiveSpace();
-  const isPersonal = activeSpace === "personal";
+  const isPersonal = activeSpace !== "work";
 
   const categoriesResult = await loadCategories(activeSpace);
   if (!categoriesResult.ok) {
@@ -116,12 +117,11 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
 
       return (
         <main className="mx-auto max-w-2xl px-4 py-5 md:py-8 space-y-4">
-          <h1 className="mb-1 text-xl font-bold text-slate-800">
-            {label} · {SPACE_LABELS[activeSpace]}
-          </h1>
-          <p className="mb-6 text-sm text-slate-500">
-            여행 준비 할일은 묶어서 보고, 펼치기·숨기기로 정리할 수 있습니다.
-          </p>
+          <EntryListHeader
+            title={`${label} · ${VIEW_SPACE_LABELS[activeSpace]}`}
+            subtitle="여행 준비 할일은 묶어서 보고, 펼치기·숨기기로 정리할 수 있습니다."
+            entryType="todo"
+          />
 
           {groups.length > 0 && (
             <TravelPrepTodoGroups
@@ -161,11 +161,12 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
     }
 
     return (
-      <main className="mx-auto max-w-2xl px-4 py-6">
-        <h1 className="mb-1 text-xl font-bold text-slate-800">
-          {label} · {SPACE_LABELS[activeSpace]}
-        </h1>
-        <p className="mb-6 text-sm text-slate-500">활성 {entries.length}건</p>
+      <main className="mx-auto max-w-2xl px-4 py-6 space-y-4">
+        <EntryListHeader
+          title={`${label} · ${VIEW_SPACE_LABELS[activeSpace]}`}
+          subtitle={`활성 ${entries.length}건`}
+          entryType={type}
+        />
         <div className="rounded-xl border border-slate-200 bg-white px-4">
           <EntryList
             entries={entries}
@@ -200,14 +201,11 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-bold text-slate-800">
-        {label} · {SPACE_LABELS[activeSpace]}
-      </h1>
-      <p className="mb-6 text-sm text-slate-500">
-        여행 체크리스트를 편집하고, 여행 입력 시 할일로 자동 생성되는 항목을
-        관리합니다.
-      </p>
+    <main className="mx-auto max-w-2xl px-4 py-6 space-y-4">
+      <EntryListHeader
+        title={`${label} · ${VIEW_SPACE_LABELS[activeSpace]}`}
+        subtitle="여행 체크리스트를 편집하고, 여행 입력 시 할일로 자동 생성되는 항목을 관리합니다."
+      />
 
       {travelTemplate && (
         <ChecklistTemplateEditor initialTemplate={travelTemplate} />

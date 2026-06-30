@@ -2,7 +2,7 @@ import { EntryList } from "@/components/entries/entry-list";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { getActiveSpace } from "@/actions/space";
 import { getDoneStats } from "@/actions/entries";
-import { SPACE_LABELS } from "@/lib/spaces";
+import { VIEW_SPACE_LABELS } from "@/lib/spaces";
 import { isSchemaSetupError } from "@/lib/supabase/errors";
 import { loadCategories, loadEntries } from "@/lib/app-data";
 
@@ -31,7 +31,7 @@ export default async function DonePage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="mb-1 text-xl font-bold text-slate-800">
-        완료 · {SPACE_LABELS[activeSpace]}
+        완료 · {VIEW_SPACE_LABELS[activeSpace]}
       </h1>
       <p className="mb-6 text-sm text-slate-500">
         완료한 항목과 이번 주 통계입니다.

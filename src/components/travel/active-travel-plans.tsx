@@ -12,6 +12,7 @@ import {
   type TravelSeason,
 } from "@/lib/travel-plan";
 import { toggleEntryDone } from "@/actions/entries";
+import { PROJECT_LABEL } from "@/lib/project-labels";
 
 interface ActiveTravelPlansProps {
   plans: Entry[];
@@ -97,10 +98,10 @@ function TravelPlanCard({
           </p>
         </div>
         <Link
-          href="/todo"
+          href="/boards"
           className="text-xs font-medium text-sky-700 hover:text-sky-900"
         >
-          할일에서 보기
+          {PROJECT_LABEL}에서 보기
         </Link>
       </div>
 

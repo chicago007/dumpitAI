@@ -1,16 +1,18 @@
-import { CaptureInput } from "@/components/capture/capture-input";
+import { SmartInput } from "@/components/capture/smart-input";
 import { EntryList } from "@/components/entries/entry-list";
+import { ActiveProjectBoards } from "@/components/boards/active-project-boards";
 import { PageShell, SectionCard } from "@/components/layout/page-shell";
-import { ActiveTravelPlans } from "@/components/travel/active-travel-plans";
 import { DetectedTravelHints } from "@/components/travel/detected-travel-hints";
 import { SetupNotice } from "@/components/setup/setup-notice";
-import { getEntriesByDueRange } from "@/actions/entries";
+import { getBoardsWithProgress } from "@/actions/boards";
+import { getEntriesByDueRange, getStandaloneTodoCount } from "@/actions/entries";
+import { ClearTodosConfirm } from "@/components/entries/clear-todos-confirm";
 import { getActiveTravelPlans } from "@/actions/travel-plan";
 import { getTravelChecklistTemplate } from "@/actions/travel-checklist-settings";
 import { getActiveSpace } from "@/actions/space";
 import { loadCategories, loadEntries } from "@/lib/app-data";
 import { findDetectedTravelEntries } from "@/lib/travel-plan";
-import { SPACE_LABELS } from "@/lib/spaces";
+import { VIEW_SPACE_LABELS } from "@/lib/spaces";
 import { TRAVEL_CATEGORY_NAME } from "@/lib/travel";
 import type { Entry } from "@/lib/types";
 
@@ -23,7 +25,17 @@ function getWeekRange() {
   return { start, end };
 }
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ clearTodos?: string }>;
+}) {
+  const sp = searchParams ? await searchParams : undefined;
+  if (sp?.clearTodos === "1") {
+    const count = await getStandaloneTodoCount();
+    return <ClearTodosConfirm count={count} />;
+  }
+
   const activeSpace = await getActiveSpace();
   const categoriesResult = await loadCategories(activeSpace);
 
@@ -32,7 +44,7 @@ export default async function HomePage() {
   }
 
   const categories = categoriesResult.data;
-  const isPersonal = activeSpace === "personal";
+  const isPersonal = activeSpace !== "work";
 
   const [todayResult, memoResult, activeResult, checklistResult, todoResult] =
     await Promise.all([
@@ -51,6 +63,13 @@ export default async function HomePage() {
   const travelTemplate = isPersonal
     ? await getTravelChecklistTemplate()
     : undefined;
+
+  let boards: Awaited<ReturnType<typeof getBoardsWithProgress>> = [];
+  try {
+    boards = await getBoardsWithProgress(activeSpace);
+  } catch {
+    boards = [];
+  }
 
   const todayEntries = todayResult.ok ? todayResult.data : [];
   const todayTodos = todayEntries
@@ -107,12 +126,8 @@ export default async function HomePage() {
     <PageShell
       compact
       className="max-w-2xl"
-      title={`${SPACE_LABELS[activeSpace]} · 빠른 입력`}
-      description={
-        isPersonal
-          ? "Enter로 저장 · 여행·할일·일정을 한 줄로 입력"
-          : "Enter로 저장 · 회의·보고서·할일을 한 줄로 입력"
-      }
+      title={`${VIEW_SPACE_LABELS[activeSpace]} · 입력`}
+      description="한 줄은 Enter로 바로 저장 · 여러 줄은 AI가 분류합니다"
     >
       {isPersonal && travelCategory && travelHints.length > 0 && (
         <DetectedTravelHints
@@ -121,20 +136,9 @@ export default async function HomePage() {
         />
       )}
 
-      {isPersonal && travelTemplate && (
-        <ActiveTravelPlans
-          plans={travelPlans}
-          prepEntries={prepEntries}
-          template={travelTemplate}
-        />
-      )}
+      <ActiveProjectBoards boards={boards} />
 
-      <CaptureInput
-        categories={categories}
-        prepEntries={isPersonal ? prepEntries : []}
-        travelTemplate={travelTemplate}
-        activeSpace={activeSpace}
-      />
+      <SmartInput />
 
       <div className="space-y-3">
         <SectionCard
@@ -152,7 +156,6 @@ export default async function HomePage() {
               message: "오늘 마감인 할 일이 없습니다",
               entryType: "todo",
               actionLabel: "할 일 추가",
-              focusCapture: true,
               compact: true,
             }}
           />
@@ -169,7 +172,6 @@ export default async function HomePage() {
               message: "이번 주 일정이 없습니다",
               entryType: "schedule",
               actionLabel: "일정 추가",
-              focusCapture: true,
             }}
           />
         </SectionCard>
@@ -185,7 +187,6 @@ export default async function HomePage() {
               message: "저장된 메모가 없습니다",
               entryType: "memo",
               actionLabel: "메모 추가",
-              focusCapture: true,
             }}
           />
         </SectionCard>

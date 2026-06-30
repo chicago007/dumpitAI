@@ -16,6 +16,16 @@ import { isKoreanHoliday } from "@/lib/korean-holidays";
 import type { Entry } from "@/lib/types";
 import { isSchemaSetupError } from "@/lib/supabase/errors";
 
+function getCalendarDayKey(entry: Entry): string | null {
+  if (entry.due_at) {
+    return getSeoulDateKeyFromIso(entry.due_at);
+  }
+  if (entry.status === "done" && entry.completed_at) {
+    return getSeoulDateKeyFromIso(entry.completed_at);
+  }
+  return null;
+}
+
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -48,6 +58,7 @@ export default async function CalendarPage({
       end: monthEnd,
       types: [...types],
       space: activeSpace,
+      includeDone: true,
     });
   } catch (error) {
     if (isSchemaSetupError(error)) {
@@ -58,8 +69,8 @@ export default async function CalendarPage({
 
   const byDay = new Map<string, Entry[]>();
   for (const entry of entries) {
-    if (!entry.due_at) continue;
-    const key = getSeoulDateKeyFromIso(entry.due_at);
+    const key = getCalendarDayKey(entry);
+    if (!key) continue;
     const list = byDay.get(key) ?? [];
     list.push(entry);
     byDay.set(key, list);
@@ -80,7 +91,7 @@ export default async function CalendarPage({
           <div>
             <h1 className="text-xl font-semibold text-slate-900">달력</h1>
             <p className="mt-1 text-sm text-slate-500">
-              {monthLabel} {year}
+              {monthLabel} {year} · 완료 항목 포함
             </p>
           </div>
           <div className="flex gap-2">
@@ -122,9 +133,14 @@ export default async function CalendarPage({
             const colIndex = index % 7;
             const isSaturday = colIndex === 5;
             const isSunday = colIndex === 6;
-            const dayEntries = (byDay.get(cell.key) ?? []).sort(
-              (a, b) => (a.due_at ?? "").localeCompare(b.due_at ?? ""),
-            );
+            const dayEntries = (byDay.get(cell.key) ?? []).sort((a, b) => {
+              if (a.status !== b.status) {
+                return a.status === "done" ? 1 : -1;
+              }
+              const aDate = a.due_at ?? a.completed_at ?? "";
+              const bDate = b.due_at ?? b.completed_at ?? "";
+              return aDate.localeCompare(bDate);
+            });
             const cellDate = seoulCalendarDate(
               cell.parts.year,
               cell.parts.month0,

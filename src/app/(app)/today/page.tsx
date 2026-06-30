@@ -1,9 +1,10 @@
+import { CollapsibleSmartInput } from "@/components/capture/collapsible-smart-input";
 import { EntryList } from "@/components/entries/entry-list";
 import { PageShell, SectionCard } from "@/components/layout/page-shell";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { getActiveSpace } from "@/actions/space";
 import { loadCategories, loadEntries } from "@/lib/app-data";
-import { SPACE_LABELS } from "@/lib/spaces";
+import { VIEW_SPACE_LABELS } from "@/lib/spaces";
 
 export default async function TodayPage() {
   const activeSpace = await getActiveSpace();
@@ -27,9 +28,11 @@ export default async function TodayPage() {
 
   return (
     <PageShell
-      title={`오늘 · ${SPACE_LABELS[activeSpace]}`}
+      title={`오늘 · ${VIEW_SPACE_LABELS[activeSpace]}`}
       description="오늘 마감인 할 일과 일정입니다."
     >
+      <CollapsibleSmartInput entryType="todo" />
+
       <SectionCard
         title={`오늘 (${todayResult.data.length})`}
         contentClassName="px-4 pb-2"

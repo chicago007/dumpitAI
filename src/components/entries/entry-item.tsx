@@ -127,6 +127,29 @@ export function EntryItem({
     }
   }
 
+  function handleDelete() {
+    const preview =
+      entry.content.trim().length > 40
+        ? `${entry.content.trim().slice(0, 40)}…`
+        : entry.content.trim() || "이 항목";
+    if (
+      !confirm(
+        `"${preview}" ${TYPE_LABELS[entry.type]}을(를) 삭제할까요?\n삭제한 항목은 복구할 수 없습니다.`,
+      )
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await deleteEntry(entry.id);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+      }
+    });
+  }
+
   function handleSave() {
     if (!content.trim()) return;
 
@@ -393,17 +416,17 @@ export function EntryItem({
         >
           <Pencil className="h-4 w-4" />
         </Button>
-        <form action={deleteEntry.bind(null, entry.id)}>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            aria-label="삭제"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </form>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={handleDelete}
+          disabled={isPending}
+          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          aria-label="삭제"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </div>
     </li>
   );

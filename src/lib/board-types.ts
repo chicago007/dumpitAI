@@ -39,10 +39,20 @@ export interface BoardMetadata {
   budgetCategories?: BoardBudgetCategory[];
   expenses?: BoardExpense[];
   aiSuggestions?: BoardAiSuggestion[];
+  /** 프로젝트 상단 탭 분류 */
+  boardTabs?: BoardTabConfig[];
   destination?: string;
   season?: string;
   customTypeLabel?: string;
   currency?: string;
+}
+
+export interface BoardTabConfig {
+  id: string;
+  kind: BoardTab;
+  label: string;
+  /** 체크리스트 하위 카테고리 전용 탭 */
+  checklistGroupId?: string;
 }
 
 export const BOARD_PROJECT_TYPE_LABELS: Record<BoardProjectType, string> = {

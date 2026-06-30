@@ -41,6 +41,10 @@ interface BoardChecklistTabProps {
   metadata: BoardMetadata;
   defaultCategoryId: string;
   boardColor: string;
+  /** 단일 카테고리 전용 탭 */
+  filterGroupId?: string;
+  /** 다른 탭에 연결된 카테고리 (메인 체크리스트에서 숨김) */
+  dedicatedGroupIds?: string[];
 }
 
 export function BoardChecklistTab({
@@ -49,6 +53,8 @@ export function BoardChecklistTab({
   metadata,
   defaultCategoryId,
   boardColor,
+  filterGroupId,
+  dedicatedGroupIds = [],
 }: BoardChecklistTabProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -66,7 +72,11 @@ export function BoardChecklistTab({
   const done = checklistEntries.filter((e) => e.status === "done").length;
   const progress = total === 0 ? 0 : Math.round((done / total) * 100);
 
-  const groups = metadata.checklistGroups ?? [];
+  const allGroups = metadata.checklistGroups ?? [];
+  const dedicated = new Set(dedicatedGroupIds);
+  const groups = filterGroupId
+    ? allGroups.filter((g) => g.id === filterGroupId)
+    : allGroups.filter((g) => !dedicated.has(g.id));
   const itemOrder = getChecklistItemOrder(metadata);
   const aiSuggestions = metadata.aiSuggestions ?? [];
 
@@ -169,6 +179,14 @@ export function BoardChecklistTab({
         defaultCategoryId={defaultCategoryId}
       />
 
+      {groups.length === 0 && (
+        <p className="rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
+          {filterGroupId
+            ? "항목이 없습니다. 아래에서 추가하세요."
+            : "카테고리가 없습니다. 분류 관리에서 추가하거나 아래에서 만드세요."}
+        </p>
+      )}
+
       {groups.map((group) => {
         const groupEntries = sortEntriesByChecklistOrder(
           checklistEntries.filter((e) => getGroupId(e) === group.id),
@@ -263,25 +281,27 @@ export function BoardChecklistTab({
         );
       })}
 
-      <div className="flex gap-2">
-        <Input
-          value={newGroupName}
-          onChange={(e) => setNewGroupName(e.target.value)}
-          placeholder="새 카테고리 이름"
-          className="h-8 text-sm"
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 shrink-0 gap-1"
-          disabled={isPending}
-          onClick={handleAddGroup}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          카테고리
-        </Button>
-      </div>
+      {!filterGroupId && (
+        <div className="flex gap-2">
+          <Input
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            placeholder="새 카테고리 이름"
+            className="h-8 text-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 shrink-0 gap-1"
+            disabled={isPending}
+            onClick={handleAddGroup}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            카테고리
+          </Button>
+        </div>
+      )}
 
       {aiSuggestions.length > 0 && (
         <section className="rounded-lg border border-primary/20 bg-accent/30 p-3 space-y-3">

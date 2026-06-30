@@ -2,6 +2,7 @@ export type EntryType = "memo" | "todo" | "schedule" | "checklist";
 export type EntryStatus = "active" | "done" | "archived";
 export type Priority = "low" | "medium" | "high";
 export type Space = "work" | "personal";
+export type { ViewSpace } from "@/lib/spaces";
 
 export interface Category {
   id: string;

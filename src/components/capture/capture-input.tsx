@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { Category, EntryType, Space } from "@/lib/types";
+import type { Category, EntryType } from "@/lib/types";
+import type { Space, ViewSpace } from "@/lib/spaces";
+import { getDefaultCategoryNameForSpace } from "@/lib/spaces";
+import { parseSpaceInputPrefix } from "@/lib/space-input";
 import {
   classifyContent,
   extractDueDate,
@@ -40,7 +43,7 @@ interface CaptureInputProps {
   categories: Category[];
   prepEntries?: Entry[];
   travelTemplate?: TravelChecklistGroup[];
-  activeSpace?: Space;
+  activeViewSpace?: ViewSpace;
 }
 
 function toDateInputValue(date: Date | null) {
@@ -51,21 +54,30 @@ function toDateInputValue(date: Date | null) {
   return `${y}-${m}-${d}`;
 }
 
+function pickCategoryForSpace(categories: Category[], space: Space) {
+  const preferred = getDefaultCategoryNameForSpace(space);
+  return (
+    categories.find((c) => c.space === space && c.name === preferred) ??
+    categories.find((c) => c.space === space) ??
+    categories[0]
+  );
+}
+
 export function CaptureInput({
   categories,
   prepEntries = [],
   travelTemplate,
-  activeSpace = "personal",
+  activeViewSpace = "personal",
 }: CaptureInputProps) {
-  const isPersonal = activeSpace === "personal";
-  const defaultCategoryName = activeSpace === "work" ? "업무" : "기타";
+  const isPersonal = activeViewSpace !== "work";
+  const defaultSpace: Space =
+    activeViewSpace === "all" ? "personal" : activeViewSpace;
+  const defaultCategoryName = getDefaultCategoryNameForSpace(defaultSpace);
 
   const [content, setContent] = useState("");
   const [type, setType] = useState<EntryType>("memo");
   const [categoryId, setCategoryId] = useState<string>(
-    categories.find((c) => c.name === defaultCategoryName)?.id ??
-      categories[0]?.id ??
-      "",
+    pickCategoryForSpace(categories, defaultSpace)?.id ?? "",
   );
   const [dueAt, setDueAt] = useState<Date | null>(null);
   const [destination, setDestination] = useState("");
@@ -149,25 +161,35 @@ export function CaptureInput({
   function saveContent() {
     if (!content.trim() || isPending) return;
 
-    const { date: extractedDate, cleaned } = extractDueDate(content);
+    const spaceParsed = parseSpaceInputPrefix(content, activeViewSpace);
+    const { date: extractedDate, cleaned } = extractDueDate(spaceParsed.content);
     const finalDue = extractedDate ?? dueAt;
-    const finalContent = extractedDate && cleaned ? cleaned : content;
+    const finalContent =
+      extractedDate && cleaned ? cleaned : spaceParsed.content;
+    const targetSpace = spaceParsed.targetSpace;
+    const targetCategory = pickCategoryForSpace(categories, targetSpace);
+
+    if (!targetCategory) {
+      setError("해당 공간의 카테고리를 찾을 수 없습니다.");
+      return;
+    }
 
     startTransition(async () => {
       try {
         const travelCtx = parseTravelContext(
-          content,
+          spaceParsed.content,
           destination || null,
           finalDue,
         );
 
         const travelCategoryId =
-          categories.find((c) => c.name === TRAVEL_CATEGORY_NAME)?.id ??
-          categoryId;
+          categories.find(
+            (c) => c.name === TRAVEL_CATEGORY_NAME && c.space === "personal",
+          )?.id ?? targetCategory.id;
 
-        if (travelCtx && createTravelChecklist && isPersonal) {
+        if (travelCtx && createTravelChecklist && targetSpace === "personal") {
           await createTravelPlan({
-            content: finalContent || content,
+            content: finalContent || spaceParsed.content,
             categoryId: travelCategoryId,
             destination: destination || travelCtx.destination,
             departureDate: finalDue?.toISOString() ?? null,
@@ -177,11 +199,12 @@ export function CaptureInput({
           await createEntry({
             content: finalContent,
             type,
-            categoryId,
+            categoryId: targetCategory.id,
             dueAt: finalDue?.toISOString() ?? null,
             learnKeyword,
             destination: isTravel ? destination || null : null,
             amount: isTravel ? parseAmountInput(amount) : null,
+            space: targetSpace,
           });
         }
         setContent("");
@@ -242,7 +265,11 @@ export function CaptureInput({
             value={content}
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="생각나는 대로 입력… Enter로 저장"
+            placeholder={
+              activeViewSpace === "all"
+                ? "생각나는 대로 입력… /업무 /개인 · Enter 저장"
+                : "생각나는 대로 입력… Enter로 저장"
+            }
             rows={2}
             className="min-h-[64px] resize-none rounded-none border-0 bg-transparent px-4 py-3 pr-12 text-[15px] shadow-none focus-visible:ring-0"
           />

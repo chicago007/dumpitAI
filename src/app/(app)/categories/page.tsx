@@ -3,7 +3,7 @@ import { CategoryDot } from "@/components/ui/category-dot";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { getActiveSpace } from "@/actions/space";
 import { loadCategories, loadEntries } from "@/lib/app-data";
-import { SPACE_LABELS } from "@/lib/spaces";
+import { VIEW_SPACE_LABELS } from "@/lib/spaces";
 
 export default async function CategoriesPage() {
   const activeSpace = await getActiveSpace();
@@ -26,7 +26,7 @@ export default async function CategoriesPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="mb-1 text-xl font-semibold text-slate-900">
-        {SPACE_LABELS[activeSpace]} 카테고리
+        {VIEW_SPACE_LABELS[activeSpace]} 카테고리
       </h1>
       <p className="mb-6 text-sm text-slate-500">
         분야별로 항목을 모아볼 수 있습니다.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitBoardClassifiedInput } from "@/actions/boards";
 import { classifyBoardInput } from "@/lib/board-classify";
@@ -8,6 +8,9 @@ import type { BoardTab } from "@/lib/board-types";
 import { ENTRY_TYPE_THEMES } from "@/lib/entry-type-theme";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { cn } from "@/lib/utils";
+import { Mic } from "lucide-react";
 
 const KIND_COLORS: Record<string, string> = {
   checklist: ENTRY_TYPE_THEMES.checklist.color,
@@ -42,6 +45,26 @@ export function BoardCaptureInput({
   const [content, setContent] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  const onSpeechTranscript = useCallback((transcript: string) => {
+    setContent(transcript);
+  }, []);
+
+  const {
+    isListening,
+    isSupported,
+    speechError,
+    startListening,
+    stopListening,
+  } = useSpeechRecognition(onSpeechTranscript);
+
+  function toggleVoiceInput() {
+    if (isListening) {
+      stopListening();
+      return;
+    }
+    startListening(content);
+  }
+
   const preview =
     content.trim().length > 0 ? classifyBoardInput(content) : null;
 
@@ -72,14 +95,44 @@ export function BoardCaptureInput({
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
       <div className="rounded-xl border border-border/60 bg-card shadow-card overflow-hidden">
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="한 줄 입력… Enter 저장 (카테고리/항목, 자동 분류)"
-          rows={2}
-          className="min-h-[56px] resize-none border-0 bg-transparent px-3 py-2.5 text-sm shadow-none focus-visible:ring-0"
-        />
+        <div className="relative">
+          <Textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="한 줄 입력… Enter 저장 (카테고리/항목, 자동 분류)"
+            rows={2}
+            className="min-h-[56px] resize-none border-0 bg-transparent px-3 py-2.5 pr-12 text-sm shadow-none focus-visible:ring-0"
+          />
+          {isSupported && (
+            <Button
+              type="button"
+              variant={isListening ? "destructive" : "ghost"}
+              size="icon"
+              onClick={toggleVoiceInput}
+              disabled={isPending}
+              className={cn(
+                "absolute right-2 top-2 h-8 w-8 rounded-lg text-muted-foreground",
+                isListening && "animate-pulse text-destructive",
+              )}
+              aria-label={
+                isListening ? "음성 입력 중지" : "음성으로 입력"
+              }
+            >
+              <Mic className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {(isListening || speechError) && (
+          <p
+            className="border-t border-border/50 px-3 py-1.5 text-xs text-destructive"
+            role={speechError ? "alert" : undefined}
+          >
+            {isListening
+              ? "말씀해 주세요… (마이크 버튼을 다시 누르면 중지)"
+              : speechError}
+          </p>
+        )}
         <div className="flex items-center justify-between gap-2 border-t border-border/50 px-3 py-2">
           <span className="text-xs text-muted-foreground shrink-0">
             분류 미리보기

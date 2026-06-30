@@ -22,13 +22,19 @@ import type {
   BoardExpense,
   BoardMetadata,
   BoardProjectType,
+  BoardTab,
+  BoardTabConfig,
 } from "@/lib/board-types";
+import { BOARD_TABS } from "@/lib/board-types";
+import { defaultBoardTabs, resolveBoardTabs } from "@/lib/board-tabs";
+import type { ViewSpace } from "@/lib/spaces";
 import type { Board, Entry, Space } from "@/lib/types";
 
 export interface BoardWithProgress extends Board {
   progress: number;
   total: number;
   done: number;
+  entries?: import("@/lib/types").Entry[];
 }
 
 function revalidateBoardPaths(boardId?: string) {
@@ -218,31 +224,40 @@ async function removeChecklistLinkedExpense(
   if (error) throw new Error(error.message);
 }
 
-export async function getBoards(space?: Space): Promise<Board[]> {
+export async function getBoards(space?: ViewSpace): Promise<Board[]> {
   const supabase = await createClient();
-  const activeSpace = space ?? (await getActiveSpace());
+  const viewSpace = space ?? (await getActiveSpace());
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("boards")
     .select("*")
     .eq("is_deleted", false)
-    .eq("space", activeSpace)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
 
+  if (viewSpace !== "all") {
+    query = query.eq("space", viewSpace);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as Board[];
 }
 
-export async function getBoardCount(space?: Space): Promise<number> {
+export async function getBoardCount(space?: ViewSpace): Promise<number> {
   const supabase = await createClient();
-  const activeSpace = space ?? (await getActiveSpace());
+  const viewSpace = space ?? (await getActiveSpace());
 
-  const { count, error } = await supabase
+  let query = supabase
     .from("boards")
     .select("*", { count: "exact", head: true })
-    .eq("is_deleted", false)
-    .eq("space", activeSpace);
+    .eq("is_deleted", false);
+
+  if (viewSpace !== "all") {
+    query = query.eq("space", viewSpace);
+  }
+
+  const { count, error } = await query;
 
   if (error) throw new Error(error.message);
   return count ?? 0;
@@ -280,7 +295,7 @@ export async function getBoardLinkedEntries(boardId: string): Promise<Entry[]> {
 }
 
 export async function getBoardsWithProgress(
-  space?: Space,
+  space?: ViewSpace,
 ): Promise<BoardWithProgress[]> {
   const boards = await getBoards(space);
   if (boards.length === 0) return [];
@@ -314,6 +329,7 @@ export async function getBoardsWithProgress(
       progress: computeBoardProgress(boardEntries),
       total,
       done,
+      entries: boardEntries,
     };
   });
 }
@@ -368,7 +384,8 @@ export async function createBoardWithWizard(input: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
-  const space = input.space ?? (await getActiveSpace());
+  const viewSpace = input.space ?? (await getActiveSpace());
+  const space: Space = viewSpace === "all" ? "personal" : viewSpace;
   const name = input.name.trim();
   if (!name) throw new Error("보드 이름을 입력해 주세요.");
 
@@ -403,6 +420,7 @@ export async function createBoardWithWizard(input: {
     budgetCategories,
     expenses: [],
     aiSuggestions,
+    boardTabs: defaultBoardTabs(),
     destination: input.destination,
     season: input.season,
     customTypeLabel: input.customTypeLabel,
@@ -1523,6 +1541,188 @@ export async function deleteChecklistGroup(boardId: string, groupId: string) {
 
   if (updateError) throw new Error(updateError.message);
   revalidateBoardPaths(boardId);
+}
+
+async function persistBoardTabs(boardId: string, tabs: BoardTabConfig[]) {
+  if (tabs.length === 0) {
+    throw new Error("분류를 하나 이상 남겨 두세요.");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다.");
+
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const metadata = parseMetadata(board.metadata);
+  const { error } = await supabase
+    .from("boards")
+    .update({ metadata: { ...metadata, boardTabs: tabs } })
+    .eq("id", boardId)
+    .eq("user_id", user.id);
+
+  if (error) throw new Error(error.message);
+  revalidateBoardPaths(boardId);
+}
+
+export async function addCustomBoardTab(boardId: string, label: string) {
+  const trimmed = label.trim();
+  if (!trimmed) throw new Error("분류 이름을 입력해 주세요.");
+
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const metadata = parseMetadata(board.metadata);
+  const tabs = resolveBoardTabs(metadata);
+  const groups = [...(metadata.checklistGroups ?? [])];
+
+  if (groups.some((g) => g.name === trimmed)) {
+    throw new Error("같은 이름의 분류가 이미 있습니다.");
+  }
+  if (tabs.some((t) => t.label === trimmed)) {
+    throw new Error("같은 이름의 탭이 이미 있습니다.");
+  }
+
+  const groupId = crypto.randomUUID();
+  groups.push({ id: groupId, name: trimmed });
+
+  tabs.push({
+    id: crypto.randomUUID(),
+    kind: "checklist",
+    label: trimmed,
+    checklistGroupId: groupId,
+  });
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다.");
+
+  const { error } = await supabase
+    .from("boards")
+    .update({
+      metadata: {
+        ...metadata,
+        checklistGroups: groups,
+        boardTabs: tabs,
+      },
+    })
+    .eq("id", boardId)
+    .eq("user_id", user.id);
+
+  if (error) throw new Error(error.message);
+  revalidateBoardPaths(boardId);
+}
+
+export async function addBoardTab(
+  boardId: string,
+  kind: BoardTab,
+  label?: string,
+) {
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const metadata = parseMetadata(board.metadata);
+  const tabs = resolveBoardTabs(metadata);
+  if (tabs.some((t) => t.kind === kind)) {
+    throw new Error("이미 추가된 분류입니다.");
+  }
+
+  const defaultLabel =
+    BOARD_TABS.find((t) => t.id === kind)?.label ?? kind;
+  tabs.push({
+    id: crypto.randomUUID(),
+    kind,
+    label: label?.trim() || defaultLabel,
+  });
+
+  await persistBoardTabs(boardId, tabs);
+}
+
+export async function updateBoardTabLabel(
+  boardId: string,
+  tabId: string,
+  label: string,
+) {
+  const trimmed = label.trim();
+  if (!trimmed) throw new Error("분류 이름을 입력해 주세요.");
+
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const metadata = parseMetadata(board.metadata);
+  const tabs = resolveBoardTabs(metadata);
+  const index = tabs.findIndex((t) => t.id === tabId);
+  if (index < 0) throw new Error("분류를 찾을 수 없습니다.");
+
+  tabs[index] = { ...tabs[index], label: trimmed };
+
+  if (tabs[index].checklistGroupId) {
+    const groups = (metadata.checklistGroups ?? []).map((g) =>
+      g.id === tabs[index].checklistGroupId
+        ? { ...g, name: trimmed }
+        : g,
+    );
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("로그인이 필요합니다.");
+
+    const { error } = await supabase
+      .from("boards")
+      .update({
+        metadata: { ...metadata, boardTabs: tabs, checklistGroups: groups },
+      })
+      .eq("id", boardId)
+      .eq("user_id", user.id);
+
+    if (error) throw new Error(error.message);
+    revalidateBoardPaths(boardId);
+    return;
+  }
+
+  await persistBoardTabs(boardId, tabs);
+}
+
+export async function deleteBoardTab(boardId: string, tabId: string) {
+  const board = await getBoard(boardId);
+  if (!board) throw new Error("보드를 찾을 수 없습니다.");
+
+  const metadata = parseMetadata(board.metadata);
+  const tabs = resolveBoardTabs(metadata);
+  const tab = tabs.find((t) => t.id === tabId);
+  if (!tab) throw new Error("분류를 찾을 수 없습니다.");
+
+  const next = tabs.filter((t) => t.id !== tabId);
+  await persistBoardTabs(boardId, next);
+
+  if (tab.checklistGroupId) {
+    try {
+      await deleteChecklistGroup(boardId, tab.checklistGroupId);
+    } catch {
+      // 전용 탭 그룹만 남은 경우 등 — 탭은 이미 제거됨
+      const groups = (metadata.checklistGroups ?? []).filter(
+        (g) => g.id !== tab.checklistGroupId,
+      );
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("로그인이 필요합니다.");
+
+      await supabase
+        .from("boards")
+        .update({ metadata: { ...metadata, checklistGroups: groups } })
+        .eq("id", boardId)
+        .eq("user_id", user.id);
+      revalidateBoardPaths(boardId);
+    }
+  }
 }
 
 export async function updateBoard(

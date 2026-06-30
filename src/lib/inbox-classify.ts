@@ -20,6 +20,9 @@ import {
 } from "@/lib/board-classify";
 import { parseBoardMoney, stripMoneyFromContent } from "@/lib/board-money";
 import { extractDueDate } from "@/lib/classify";
+import { parseSpaceLinePrefix } from "@/lib/space-input";
+import { inferSpaceForAllView, type SpaceInferSource } from "@/lib/space-infer";
+import type { Space, ViewSpace } from "@/lib/spaces";
 
 const DEADLINE_PARTICLE = /까지|까진|까지는/;
 
@@ -38,12 +41,14 @@ function boardKindToInboxKind(kind: BoardClassifyResult["kind"]): InboxItemKind 
 function fromBoardResult(
   rawLine: string,
   result: BoardClassifyResult,
+  targetSpace: Space,
 ): InboxPreviewItem {
   return {
     id: newId(),
     rawLine,
     kind: boardKindToInboxKind(result.kind),
     content: result.cleanedContent,
+    targetSpace,
     dueAt: result.dueAt?.toISOString() ?? null,
     amount: result.amount,
     currency: result.currency,
@@ -77,6 +82,7 @@ function fromForcedKind(
   content: string,
   kind: InboxItemKind,
   isProjectBlock: boolean,
+  targetSpace: Space,
 ): InboxPreviewItem {
   const { date, cleaned } = extractDueDate(content);
   const text = cleaned || content;
@@ -94,6 +100,7 @@ function fromForcedKind(
     id: newId(),
     rawLine,
     kind: resolvedKind,
+    targetSpace,
     content:
       resolvedKind === "budget" || resolvedKind === "expense"
         ? stripMoneyFromContent(text) || text
@@ -109,6 +116,7 @@ function fromForcedKind(
 function fromInboxClassification(
   rawLine: string,
   classification: AiInboxClassification,
+  targetSpace: Space,
 ): InboxPreviewItem[] {
   const items: InboxPreviewItem[] = [];
 
@@ -119,6 +127,7 @@ function fromInboxClassification(
       rawLine,
       kind: "todo",
       content: m ? m[2].trim() : todo,
+      targetSpace,
       dueAt: m ? m[1] : null,
       amount: null,
       currency: "KRW",
@@ -133,6 +142,7 @@ function fromInboxClassification(
       rawLine,
       kind: "schedule",
       content: schedule.title,
+      targetSpace,
       dueAt: schedule.start_date,
       amount: null,
       currency: "KRW",
@@ -147,6 +157,7 @@ function fromInboxClassification(
       rawLine,
       kind: "memo",
       content: note,
+      targetSpace,
       dueAt: null,
       amount: null,
       currency: "KRW",
@@ -168,6 +179,7 @@ function fromInboxClassification(
           rawLine,
           kind: "todo",
           content: cleaned || rawLine,
+          targetSpace,
           dueAt: date?.toISOString() ?? null,
           amount: null,
           currency: "KRW",
@@ -183,6 +195,7 @@ function fromInboxClassification(
           rawLine,
           kind: "schedule",
           content: cleaned || rawLine,
+          targetSpace,
           dueAt: date.toISOString(),
           amount: null,
           currency: "KRW",
@@ -197,6 +210,7 @@ function fromInboxClassification(
         rawLine,
         kind: "memo",
         content: rawLine,
+        targetSpace,
         dueAt: null,
         amount: null,
         currency: "KRW",
@@ -224,26 +238,65 @@ async function classifyInboxLine(
 async function classifyLineForPreview(
   line: string,
   isProjectBlock: boolean,
-): Promise<InboxPreviewItem[]> {
-  const { forceKind, content } = parseLineTypePrefix(line);
-  const body = content || line;
+  viewSpace: ViewSpace,
+): Promise<{
+  items: InboxPreviewItem[];
+  spaceInferred: boolean;
+  inferSource?: SpaceInferSource;
+}> {
+  const trimmed = line.trim();
+  const hasPrefix = /^\/(업|업무|개|개인)\s/.test(trimmed);
+
+  let inferredSpace: Space | undefined;
+  let inferSource: SpaceInferSource | undefined;
+
+  if (viewSpace === "all" && !hasPrefix) {
+    const inferred = await inferSpaceForAllView(trimmed);
+    inferredSpace = inferred.space;
+    inferSource = inferred.source;
+  }
+
+  const spaceParsed = parseSpaceLinePrefix(line, viewSpace, { inferredSpace });
+  const { forceKind, content } = parseLineTypePrefix(spaceParsed.content);
+  const body = content || spaceParsed.content;
+  const targetSpace = spaceParsed.targetSpace;
+  const spaceInferred = Boolean(spaceParsed.inferred);
 
   if (isProjectBlock) {
     if (forceKind) {
-      return [fromForcedKind(line, body, forceKind, true)];
+      return {
+        items: [fromForcedKind(line, body, forceKind, true, targetSpace)],
+        spaceInferred,
+        inferSource,
+      };
     }
-    return [fromBoardResult(line, classifyBoardInput(body))];
+    return {
+      items: [fromBoardResult(line, classifyBoardInput(body), targetSpace)],
+      spaceInferred,
+      inferSource,
+    };
   }
 
   if (forceKind) {
-    return [fromForcedKind(line, body, forceKind, false)];
+    return {
+      items: [fromForcedKind(line, body, forceKind, false, targetSpace)],
+      spaceInferred,
+      inferSource,
+    };
   }
 
-  const classification = await classifyInboxLine(line);
-  return fromInboxClassification(line, classification);
+  const classification = await classifyInboxLine(body);
+  return {
+    items: fromInboxClassification(line, classification, targetSpace),
+    spaceInferred,
+    inferSource,
+  };
 }
 
-export async function buildInboxPreview(text: string): Promise<InboxPreviewResult> {
+export async function buildInboxPreview(
+  text: string,
+  viewSpace: ViewSpace,
+): Promise<InboxPreviewResult> {
   const trimmed = text.trim();
   const { explicitProject, lines } = parseInboxBlocks(trimmed);
   const isProjectBlock = Boolean(explicitProject);
@@ -251,6 +304,8 @@ export async function buildInboxPreview(text: string): Promise<InboxPreviewResul
 
   const items: InboxPreviewItem[] = [];
   let inferredProject: string | null = explicitProject;
+  let needsSpaceConfirm = false;
+  let suggestedSpace: Space | undefined;
 
   if (isProjectBlock && targets.length === 0) {
     return {
@@ -258,12 +313,25 @@ export async function buildInboxPreview(text: string): Promise<InboxPreviewResul
       isProjectBlock: true,
       items: [],
       originalText: trimmed,
+      needsSpaceConfirm: viewSpace === "all",
+      suggestedSpace: viewSpace === "all" ? "personal" : undefined,
     };
   }
 
   for (const line of targets) {
-    const lineItems = await classifyLineForPreview(line, isProjectBlock);
-    items.push(...lineItems);
+    const lineResult = await classifyLineForPreview(
+      line,
+      isProjectBlock,
+      viewSpace,
+    );
+    items.push(...lineResult.items);
+
+    if (lineResult.spaceInferred) {
+      needsSpaceConfirm = true;
+      if (!suggestedSpace) {
+        suggestedSpace = lineResult.items[0]?.targetSpace;
+      }
+    }
 
     if (!inferredProject) {
       const travel = line.match(
@@ -292,6 +360,8 @@ export async function buildInboxPreview(text: string): Promise<InboxPreviewResul
     isProjectBlock,
     items,
     originalText: trimmed,
+    needsSpaceConfirm: viewSpace === "all" && needsSpaceConfirm,
+    suggestedSpace,
   };
 }
 

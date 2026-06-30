@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveSpace } from "@/actions/space";
 import { createClient } from "@/lib/supabase/server";
-import { categorySpaceFromName, type Space } from "@/lib/spaces";
+import { categorySpaceFromName, type Space, type ViewSpace } from "@/lib/spaces";
 import type { Category } from "@/lib/types";
 
 const WORK_CATEGORIES = [
@@ -153,16 +153,19 @@ export async function seedDefaultCategoriesIfNeeded() {
   revalidatePath("/settings");
 }
 
-export async function getCategories(space?: Space) {
+export async function getCategories(space?: ViewSpace) {
   const supabase = await createClient();
-  const activeSpace = space ?? (await getActiveSpace());
+  const viewSpace = space ?? (await getActiveSpace());
 
   let query = supabase
     .from("categories")
     .select("*")
     .eq("is_deleted", false)
-    .eq("space", activeSpace)
     .order("sort_order");
+
+  if (viewSpace !== "all") {
+    query = query.eq("space", viewSpace);
+  }
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);

@@ -5,18 +5,20 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   isSpace,
+  isViewSpace,
   SPACE_COOKIE,
   type Space,
+  type ViewSpace,
 } from "@/lib/spaces";
 
 function revalidateAll() {
   revalidatePath("/", "layout");
 }
 
-export async function getActiveSpace(): Promise<Space> {
+export async function getActiveSpace(): Promise<ViewSpace> {
   const cookieStore = await cookies();
   const fromCookie = cookieStore.get(SPACE_COOKIE)?.value;
-  if (isSpace(fromCookie)) return fromCookie;
+  if (isViewSpace(fromCookie)) return fromCookie;
 
   try {
     const supabase = await createClient();
@@ -40,8 +42,8 @@ export async function getActiveSpace(): Promise<Space> {
 }
 
 /** 쿠키 + 레이아웃 갱신만 (빠른 전환) */
-export async function setActiveSpace(space: Space) {
-  if (!isSpace(space)) throw new Error("잘못된 공간입니다.");
+export async function setActiveSpace(space: ViewSpace) {
+  if (!isViewSpace(space)) throw new Error("잘못된 공간입니다.");
 
   const cookieStore = await cookies();
   cookieStore.set(SPACE_COOKIE, space, {
@@ -53,8 +55,8 @@ export async function setActiveSpace(space: Space) {
   revalidateAll();
 }
 
-/** 다른 기기 동기화용 — UI에서 await 하지 않고 호출 */
-export async function persistActiveSpace(space: Space) {
+/** 다른 기기 동기화용 — 전체(all)는 쿠키만, DB에는 업무/개인만 */
+export async function persistActiveSpace(space: ViewSpace) {
   if (!isSpace(space)) return;
 
   const supabase = await createClient();

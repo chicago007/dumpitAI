@@ -5,7 +5,7 @@ import { getActiveSpace } from "@/actions/space";
 import { learnCategoryKeyword } from "@/actions/categories";
 import { createClient } from "@/lib/supabase/server";
 import type { CreateEntryInput, EntryType, Space, UpdateEntryInput } from "@/lib/types";
-import { getDefaultCategoryNameForSpace } from "@/lib/spaces";
+import { getDefaultCategoryNameForSpace, type ViewSpace } from "@/lib/spaces";
 import { buildTravelMetadata } from "@/lib/travel";
 import {
   getTravelPlanId,
@@ -14,6 +14,40 @@ import {
 import { syncTravelChecklistEntries as syncTravelChecklistEntriesInDb } from "@/lib/sync-travel-checklist";
 import { getBoardCount } from "@/actions/boards";
 
+/** 프로젝트에 속한 할일·여행 준비 할일은 일반 할일 목록에서 제외 */
+function applyStandaloneTodoFilter<
+  T extends {
+    is: (col: string, val: null) => T;
+    or: (filters: string) => T;
+    not: (col: string, op: string, val: string) => T;
+  },
+>(
+  query: T,
+  filters?: {
+    boardId?: string;
+    type?: EntryType;
+    today?: boolean;
+  },
+): T {
+  if (filters?.boardId) return query;
+
+  if (filters?.type === "todo") {
+    return query
+      .is("board_id", null)
+      .or(
+        "metadata->>fromTravelChecklist.is.null,metadata->>fromTravelChecklist.neq.true",
+      );
+  }
+
+  if (filters?.today) {
+    return query.or(
+      "and(board_id.is.null,or(metadata->>fromTravelChecklist.is.null,metadata->>fromTravelChecklist.neq.true)),type.neq.todo",
+    );
+  }
+
+  return query;
+}
+
 export async function getEntries(filters?: {
   status?: string;
   type?: EntryType;
@@ -21,17 +55,20 @@ export async function getEntries(filters?: {
   boardId?: string;
   today?: boolean;
   limit?: number;
-  space?: Space;
+  space?: ViewSpace;
 }) {
   const supabase = await createClient();
-  const activeSpace = filters?.space ?? (await getActiveSpace());
+  const viewSpace = filters?.space ?? (await getActiveSpace());
 
   let query = supabase
     .from("entries")
     .select("*, categories(*)")
     .eq("is_deleted", false)
-    .eq("space", activeSpace)
     .order("created_at", { ascending: false });
+
+  if (viewSpace !== "all") {
+    query = query.eq("space", viewSpace);
+  }
 
   if (filters?.status) {
     query = query.eq("status", filters.status);
@@ -59,6 +96,8 @@ export async function getEntries(filters?: {
     query = query.limit(filters.limit);
   }
 
+  query = applyStandaloneTodoFilter(query, filters);
+
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -75,7 +114,7 @@ export interface SidebarCounts {
 
 async function countEntries(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  space: Space,
+  viewSpace: ViewSpace,
   filters: {
     status?: string;
     type?: EntryType;
@@ -85,8 +124,11 @@ async function countEntries(
   let query = supabase
     .from("entries")
     .select("*", { count: "exact", head: true })
-    .eq("is_deleted", false)
-    .eq("space", space);
+    .eq("is_deleted", false);
+
+  if (viewSpace !== "all") {
+    query = query.eq("space", viewSpace);
+  }
 
   if (filters.status) {
     query = query.eq("status", filters.status);
@@ -105,22 +147,26 @@ async function countEntries(
       .lte("due_at", end.toISOString());
   }
 
+  query = applyStandaloneTodoFilter(query, filters);
+
   const { count, error } = await query;
   if (error) throw new Error(error.message);
   return count ?? 0;
 }
 
 /** 사이드바 숫자 — 전체 행 조회 없이 count만 */
-export async function getSidebarCounts(space: Space): Promise<SidebarCounts> {
+export async function getSidebarCounts(
+  viewSpace: ViewSpace,
+): Promise<SidebarCounts> {
   const supabase = await createClient();
 
   const [today, memo, todo, schedule, boards, done] = await Promise.all([
-    countEntries(supabase, space, { today: true }),
-    countEntries(supabase, space, { status: "active", type: "memo" }),
-    countEntries(supabase, space, { status: "active", type: "todo" }),
-    countEntries(supabase, space, { status: "active", type: "schedule" }),
-    getBoardCount(space),
-    countEntries(supabase, space, { status: "done" }),
+    countEntries(supabase, viewSpace, { today: true }),
+    countEntries(supabase, viewSpace, { status: "active", type: "memo" }),
+    countEntries(supabase, viewSpace, { status: "active", type: "todo" }),
+    countEntries(supabase, viewSpace, { status: "active", type: "schedule" }),
+    getBoardCount(viewSpace),
+    countEntries(supabase, viewSpace, { status: "done" }),
   ]);
 
   return { today, memo, todo, schedule, boards, done };
@@ -130,21 +176,35 @@ export async function getEntriesByDueRange(params: {
   start: Date;
   end: Date;
   types?: EntryType[];
-  space?: Space;
+  space?: ViewSpace;
+  includeDone?: boolean;
 }) {
   const supabase = await createClient();
-  const activeSpace = params.space ?? (await getActiveSpace());
+  const viewSpace = params.space ?? (await getActiveSpace());
   const startISO = params.start.toISOString();
   const endISO = params.end.toISOString();
 
   let query = supabase
     .from("entries")
     .select("*, categories(*)")
-    .eq("is_deleted", false)
-    .eq("space", activeSpace)
-    .eq("status", "active")
-    .gte("due_at", startISO)
-    .lte("due_at", endISO);
+    .eq("is_deleted", false);
+
+  if (!params.includeDone) {
+    query = query
+      .eq("status", "active")
+      .gte("due_at", startISO)
+      .lte("due_at", endISO);
+  } else {
+    query = query.or(
+      `and(status.eq.active,due_at.gte.${startISO},due_at.lte.${endISO}),` +
+        `and(status.eq.done,due_at.gte.${startISO},due_at.lte.${endISO}),` +
+        `and(status.eq.done,completed_at.gte.${startISO},completed_at.lte.${endISO})`,
+    );
+  }
+
+  if (viewSpace !== "all") {
+    query = query.eq("space", viewSpace);
+  }
 
   if (params.types && params.types.length > 0) {
     query = query.in("type", params.types);
@@ -174,7 +234,7 @@ export async function createEntry(input: CreateEntryInput) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("로그인이 필요합니다.");
 
-  const space = input.space ?? (await getActiveSpace());
+  const viewSpace = await getActiveSpace();
 
   const { data: category } = await supabase
     .from("categories")
@@ -182,7 +242,14 @@ export async function createEntry(input: CreateEntryInput) {
     .eq("id", input.categoryId)
     .single();
 
-  const entrySpace = (category?.space as Space) ?? space;
+  const entrySpace =
+    input.space ??
+    (category?.space as Space | undefined) ??
+    (viewSpace !== "all" ? viewSpace : null);
+
+  if (!entrySpace) {
+    throw new Error("저장할 공간을 /업무 또는 /개인으로 지정해 주세요.");
+  }
 
   const { error } = await supabase.from("entries").insert({
     user_id: user.id,
@@ -399,6 +466,60 @@ export async function toggleEntryDone(id: string, done: boolean) {
   revalidateEntryPaths();
 }
 
+/** 일반 할일 목록 항목 수 (프로젝트 소속 제외) */
+export async function getStandaloneTodoCount(): Promise<number> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다.");
+
+  const { count, error } = await supabase
+    .from("entries")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("type", "todo")
+    .eq("is_deleted", false)
+    .is("board_id", null);
+
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+/** 일반 할일 목록 항목 전체 삭제 (프로젝트·여행 준비 제외) */
+export async function clearStandaloneTodos(): Promise<{ count: number }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다.");
+
+  const { data: targets, error: fetchError } = await supabase
+    .from("entries")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("type", "todo")
+    .eq("is_deleted", false)
+    .is("board_id", null);
+
+  if (fetchError) throw new Error(fetchError.message);
+
+  const ids = (targets ?? []).map((row) => row.id);
+  if (ids.length === 0) {
+    return { count: 0 };
+  }
+
+  const { error } = await supabase
+    .from("entries")
+    .update({ is_deleted: true })
+    .in("id", ids)
+    .eq("user_id", user.id);
+
+  if (error) throw new Error(error.message);
+  revalidateEntryPaths();
+  return { count: ids.length };
+}
+
 export async function deleteEntry(id: string) {
   const supabase = await createClient();
   const {
@@ -474,20 +595,24 @@ export async function deleteEntry(id: string) {
   revalidateEntryPaths();
 }
 
-export async function getDoneStats(space?: Space) {
+export async function getDoneStats(space?: ViewSpace) {
   const supabase = await createClient();
-  const activeSpace = space ?? (await getActiveSpace());
+  const viewSpace = space ?? (await getActiveSpace());
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("entries")
     .select("id, completed_at, categories(name, icon)")
     .eq("status", "done")
     .eq("is_deleted", false)
-    .eq("space", activeSpace)
     .gte("completed_at", weekAgo.toISOString());
 
+  if (viewSpace !== "all") {
+    query = query.eq("space", viewSpace);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return {
     total: data?.length ?? 0,

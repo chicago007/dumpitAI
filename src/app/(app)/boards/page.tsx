@@ -1,3 +1,4 @@
+import { CollapsibleSmartInput } from "@/components/capture/collapsible-smart-input";
 import { BoardProgressList } from "@/components/boards/board-progress-list";
 import { BoardSummaryCard } from "@/components/boards/board-summary-card";
 import { BoardWizard } from "@/components/boards/board-wizard";
@@ -9,7 +10,7 @@ import { getActiveSpace } from "@/actions/space";
 import { computeOverallProgress } from "@/lib/board-progress";
 import { loadCategories } from "@/lib/app-data";
 import { PROJECT_LABEL } from "@/lib/project-labels";
-import { SPACE_LABELS } from "@/lib/spaces";
+import { VIEW_SPACE_LABELS } from "@/lib/spaces";
 
 export default async function BoardsPage() {
   const activeSpace = await getActiveSpace();
@@ -44,12 +45,19 @@ export default async function BoardsPage() {
 
   return (
     <PageShell
-      title={`${PROJECT_LABEL} · ${SPACE_LABELS[activeSpace]}`}
+      title={`${PROJECT_LABEL} · ${VIEW_SPACE_LABELS[activeSpace]}`}
       description="관련 할 일을 묶고 진행률을 한눈에 확인합니다"
       actions={
-        <BoardWizard activeSpace={activeSpace} categories={categories} />
+        <BoardWizard
+          activeSpace={activeSpace === "all" ? "personal" : activeSpace}
+          categories={categories.filter(
+            (c) =>
+              activeSpace === "all" || c.space === activeSpace,
+          )}
+        />
       }
     >
+      <CollapsibleSmartInput />
       <BoardSummaryCard
         todayCount={todayCount}
         overallProgress={overallProgress}
