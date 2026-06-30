@@ -15,10 +15,18 @@ function getCalendarDayKey(entry: Entry): string | null {
   if (entry.due_at) {
     return getSeoulDateKeyFromIso(entry.due_at);
   }
+  if (entry.type === "memo") {
+    return getSeoulDateKeyFromIso(entry.created_at);
+  }
   if (entry.status === "done" && entry.completed_at) {
     return getSeoulDateKeyFromIso(entry.completed_at);
   }
   return null;
+}
+
+function isInMonthRange(iso: string, startKey: string, endKey: string) {
+  const key = getSeoulDateKeyFromIso(iso);
+  return key >= startKey && key <= endKey;
 }
 
 export default async function CalendarPage({
@@ -44,7 +52,9 @@ export default async function CalendarPage({
   }
 
   const { start: monthStart, end: monthEnd } = getSeoulMonthRange(year, month0);
-  const types = ["todo", "checklist", "schedule"] as const;
+  const monthStartKey = getSeoulDateKeyFromIso(monthStart.toISOString());
+  const monthEndKey = getSeoulDateKeyFromIso(monthEnd.toISOString());
+  const types = ["todo", "checklist", "schedule", "memo"] as const;
 
   let entries: Entry[] = [];
   try {
@@ -60,6 +70,25 @@ export default async function CalendarPage({
       return <SetupNotice />;
     }
     throw error;
+  }
+
+  const memoCalendarResult = await loadEntries({
+    type: "memo",
+    status: "active",
+    space: activeSpace,
+  });
+  const seenIds = new Set(entries.map((e) => e.id));
+  if (memoCalendarResult.ok) {
+    for (const memo of memoCalendarResult.data) {
+      if (memo.due_at) continue;
+      if (!isInMonthRange(memo.created_at, monthStartKey, monthEndKey)) {
+        continue;
+      }
+      if (!seenIds.has(memo.id)) {
+        entries.push(memo);
+        seenIds.add(memo.id);
+      }
+    }
   }
 
   const entriesByDay: Record<string, Entry[]> = {};
@@ -85,6 +114,12 @@ export default async function CalendarPage({
       })
     : [];
 
+  const memos = memoCalendarResult.ok
+    ? [...memoCalendarResult.data]
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        .slice(0, 20)
+    : [];
+
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
       <CalendarView
@@ -95,6 +130,7 @@ export default async function CalendarPage({
         entriesByDay={entriesByDay}
         categories={categoriesResult.data}
         todos={todos}
+        memos={memos}
       />
     </main>
   );
