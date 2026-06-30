@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { revalidateAppData } from "@/lib/revalidate";
 import { buildTravelMetadata } from "@/lib/travel";
 import {
   buildTravelTitle,
@@ -12,15 +12,8 @@ import { getTravelChecklistId } from "@/lib/travel-checklist-template";
 import { getTravelChecklistTemplate } from "@/actions/travel-checklist-settings";
 import type { Entry } from "@/lib/types";
 
-function revalidateAll() {
-  revalidatePath("/");
-  revalidatePath("/boards");
-  revalidatePath("/schedule");
-  revalidatePath("/todo");
-  revalidatePath("/today");
-  revalidatePath("/calendar");
-  revalidatePath("/categories");
-}
+const TRAVEL_PREP_SELECT =
+  "id, metadata, type, content, due_at, status" as const;
 
 export async function createTravelPlan(input: {
   content: string;
@@ -48,11 +41,16 @@ export async function createTravelPlan(input: {
 
   const { data: existingEntries } = await supabase
     .from("entries")
-    .select("*")
+    .select(TRAVEL_PREP_SELECT)
+    .eq("user_id", user.id)
     .eq("is_deleted", false)
-    .in("type", ["todo", "checklist"]);
+    .in("type", ["todo", "checklist"])
+    .limit(200);
 
-  const existing = (existingEntries ?? []) as Entry[];
+  const existing = (existingEntries ?? []) as Pick<
+    Entry,
+    "id" | "metadata" | "type"
+  >[];
 
   const { error: planError } = await supabase.from("entries").insert({
     user_id: user.id,
@@ -105,15 +103,19 @@ export async function createTravelPlan(input: {
     if (todoError) throw new Error(todoError.message);
   }
 
-  revalidateAll();
+  revalidateAppData();
   return { planId, createdCount: todoInserts.length };
 }
 
 export async function getActiveTravelPlans() {
   const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from("entries")
     .select("*, categories(*)")
+    .eq("user_id", user.id)
     .eq("is_deleted", false)
     .eq("status", "active")
     .eq("type", "schedule")
@@ -138,6 +140,7 @@ export async function createTravelPlanFromEntry(
     .from("entries")
     .select("*")
     .eq("id", entryId)
+    .eq("user_id", user.id)
     .single();
 
   if (fetchError || !entry) throw new Error("항목을 찾을 수 없습니다.");

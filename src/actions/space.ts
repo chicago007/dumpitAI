@@ -2,7 +2,7 @@
 
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidateAppLayout } from "@/lib/revalidate";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   isSpace,
@@ -11,10 +11,6 @@ import {
   type Space,
   type ViewSpace,
 } from "@/lib/spaces";
-
-function revalidateAll() {
-  revalidatePath("/", "layout");
-}
 
 /**
  * 요청 단위로 메모이즈 — 레이아웃·페이지·여러 액션이 같은 렌더에서
@@ -59,7 +55,7 @@ export async function setActiveSpace(space: ViewSpace) {
     sameSite: "lax",
   });
 
-  revalidateAll();
+  revalidateAppLayout();
 }
 
 /** 다른 기기 동기화용 — 전체(all)는 쿠키만, DB에는 업무/개인만 */

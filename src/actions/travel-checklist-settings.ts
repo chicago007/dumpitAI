@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { revalidateAppData } from "@/lib/revalidate";
 import {
   cloneTemplate,
   DEFAULT_TRAVEL_CHECKLIST_TEMPLATE,
@@ -82,9 +82,7 @@ export async function saveTravelChecklistTemplate(
     throw new Error(error.message);
   }
 
-  revalidatePath("/boards");
-  revalidatePath("/");
-  revalidatePath("/todo");
+  revalidateAppData();
 }
 
 export async function resetTravelChecklistTemplate() {

@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getActiveSpace } from "@/actions/space";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { revalidateBoardPaths } from "@/lib/revalidate";
 import {
   appendToGroupOrder,
   getChecklistItemOrder,
@@ -36,12 +36,6 @@ export interface BoardWithProgress extends Board {
   total: number;
   done: number;
   entries?: import("@/lib/types").Entry[];
-}
-
-function revalidateBoardPaths(boardId?: string) {
-  revalidatePath("/");
-  revalidatePath("/boards");
-  if (boardId) revalidatePath(`/boards/${boardId}`);
 }
 
 function parseMetadata(raw: Record<string, unknown> | null | undefined): BoardMetadata {

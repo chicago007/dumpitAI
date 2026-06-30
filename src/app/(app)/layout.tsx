@@ -21,7 +21,8 @@ export default async function AppLayout({
   let counts = EMPTY_COUNTS;
   try {
     counts = await getSidebarCounts(activeSpace);
-  } catch {
+  } catch (err) {
+    console.error("[AppLayout] getSidebarCounts failed:", err);
     counts = EMPTY_COUNTS;
   }
 

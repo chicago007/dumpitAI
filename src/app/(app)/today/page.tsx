@@ -32,7 +32,8 @@ export default async function TodayPage() {
     [];
   try {
     completedToday = await getEntriesCompletedToday(activeSpace);
-  } catch {
+  } catch (err) {
+    console.error("[TodayPage] getEntriesCompletedToday failed:", err);
     completedToday = [];
   }
 

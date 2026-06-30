@@ -5,7 +5,11 @@ import { PageShell, SectionCard } from "@/components/layout/page-shell";
 import { DetectedTravelHints } from "@/components/travel/detected-travel-hints";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { getBoardsWithProgress } from "@/actions/boards";
-import { getEntriesByDueRange, getStandaloneTodoCount } from "@/actions/entries";
+import {
+  getEntriesByDueRange,
+  getStandaloneTodoCount,
+  getTravelHintCandidateEntries,
+} from "@/actions/entries";
 import { ClearTodosConfirm } from "@/components/entries/clear-todos-confirm";
 import { getActiveTravelPlans } from "@/actions/travel-plan";
 import { getTravelChecklistTemplate } from "@/actions/travel-checklist-settings";
@@ -46,7 +50,7 @@ export default async function HomePage({
   const categories = categoriesResult.data;
   const isPersonal = activeSpace !== "work";
 
-  const [todayResult, memoResult, activeResult, checklistResult, todoResult] =
+  const [todayResult, memoResult, checklistResult, todoResult, travelHintEntries] =
     await Promise.all([
       loadEntries({ today: true, space: activeSpace }),
       loadEntries({
@@ -55,9 +59,9 @@ export default async function HomePage({
         limit: 6,
         space: activeSpace,
       }),
-      loadEntries({ status: "active", space: activeSpace }),
       loadEntries({ type: "checklist", space: activeSpace }),
       loadEntries({ type: "todo", status: "active", space: activeSpace }),
+      getTravelHintCandidateEntries(activeSpace),
     ]);
 
   const travelTemplate = isPersonal
@@ -67,7 +71,8 @@ export default async function HomePage({
   let boards: Awaited<ReturnType<typeof getBoardsWithProgress>> = [];
   try {
     boards = await getBoardsWithProgress(activeSpace);
-  } catch {
+  } catch (err) {
+    console.error("[HomePage] getBoardsWithProgress failed:", err);
     boards = [];
   }
 
@@ -89,13 +94,13 @@ export default async function HomePage({
     weekSchedules = weekSchedules
       .sort((a, b) => (a.due_at ?? "").localeCompare(b.due_at ?? ""))
       .slice(0, 8);
-  } catch {
+  } catch (err) {
+    console.error("[HomePage] getEntriesByDueRange failed:", err);
     weekSchedules = [];
   }
 
   const recentMemos = memoResult.ok ? memoResult.data : [];
 
-  const activeEntries = activeResult.ok ? activeResult.data : [];
   const checklistEntries = checklistResult.ok ? checklistResult.data : [];
   const todoEntries = todoResult.ok ? todoResult.data : [];
   const prepEntries = [...todoEntries, ...checklistEntries];
@@ -108,7 +113,8 @@ export default async function HomePage({
   if (isPersonal) {
     try {
       travelPlans = await getActiveTravelPlans();
-    } catch {
+    } catch (err) {
+      console.error("[HomePage] getActiveTravelPlans failed:", err);
       travelPlans = [];
     }
   }
@@ -116,7 +122,7 @@ export default async function HomePage({
   const travelHints =
     isPersonal && travelCategory && travelTemplate
       ? findDetectedTravelEntries(
-          activeEntries,
+          travelHintEntries,
           travelPlans,
           prepEntries,
           travelTemplate,

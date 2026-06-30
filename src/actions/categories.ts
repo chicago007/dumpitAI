@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getActiveSpace } from "@/actions/space";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { revalidateSettingsPaths, revalidateAppData } from "@/lib/revalidate";
 import { categorySpaceFromName, type Space, type ViewSpace } from "@/lib/spaces";
 import type { Category } from "@/lib/types";
 
@@ -146,9 +146,8 @@ export async function seedDefaultCategoriesIfNeeded() {
   const { error } = await supabase.from("categories").insert(toInsert);
   if (error) throw new Error(error.message);
 
-  revalidatePath("/");
-  revalidatePath("/categories");
-  revalidatePath("/settings");
+  revalidateAppData();
+  revalidateSettingsPaths();
 }
 
 export async function getCategories(space?: ViewSpace) {
@@ -217,8 +216,7 @@ export async function createCategory(input: {
   });
 
   if (error) throw new Error(error.message);
-  revalidatePath("/settings");
-  revalidatePath("/categories");
+  revalidateSettingsPaths();
 }
 
 export async function updateCategory(
@@ -242,8 +240,7 @@ export async function updateCategory(
     .eq("id", id);
 
   if (error) throw new Error(error.message);
-  revalidatePath("/settings");
-  revalidatePath("/categories");
+  revalidateSettingsPaths();
 }
 
 export async function deleteCategory(id: string) {
@@ -281,8 +278,7 @@ export async function deleteCategory(id: string) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
-  revalidatePath("/settings");
-  revalidatePath("/categories");
+  revalidateSettingsPaths();
 }
 
 export async function learnCategoryKeyword(

@@ -1,9 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getActiveSpace } from "@/actions/space";
 import { learnCategoryKeyword } from "@/actions/categories";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { revalidateEntryPaths } from "@/lib/revalidate";
 import type { CreateEntryInput, EntryType, Space, UpdateEntryInput } from "@/lib/types";
 import { getDefaultCategoryNameForSpace, getEntrySpace, type ViewSpace } from "@/lib/spaces";
 import { buildTravelMetadata } from "@/lib/travel";
@@ -269,16 +269,31 @@ export async function getEntriesByDueRange(params: {
   return data ?? [];
 }
 
-function revalidateEntryPaths() {
-  revalidatePath("/");
-  revalidatePath("/today");
-  revalidatePath("/calendar");
-  revalidatePath("/categories");
-  revalidatePath("/memo");
-  revalidatePath("/todo");
-  revalidatePath("/schedule");
-  revalidatePath("/boards");
-  revalidatePath("/done");
+/** 홈 여행 힌트 감지용 — memo·schedule 최근 항목만 */
+export async function getTravelHintCandidateEntries(space?: ViewSpace) {
+  const supabase = await createClient();
+  const viewSpace = space ?? (await getActiveSpace());
+
+  let query = supabase
+    .from("entries")
+    .select("*, categories(*)")
+    .eq("is_deleted", false)
+    .eq("status", "active")
+    .in("type", ["memo", "schedule"])
+    .order("updated_at", { ascending: false })
+    .limit(80);
+
+  if (viewSpace !== "all") {
+    query = query.or(`space.eq.${viewSpace},space.is.null`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  let entries = data ?? [];
+  if (viewSpace !== "all") {
+    entries = entries.filter((e) => getEntrySpace(e) === viewSpace);
+  }
+  return entries;
 }
 
 export async function createEntry(input: CreateEntryInput) {
@@ -470,8 +485,7 @@ export async function updateBoardLinkedEntry(input: {
 
   if (error) throw new Error(error.message);
 
-  revalidateEntryPaths();
-  revalidatePath(`/boards/${input.boardId}`);
+  revalidateEntryPaths(input.boardId);
 }
 
 export async function deleteBoardLinkedEntry(entryId: string, boardId: string) {
@@ -493,7 +507,7 @@ export async function deleteBoardLinkedEntry(entryId: string, boardId: string) {
   }
 
   await deleteEntry(entryId);
-  revalidatePath(`/boards/${boardId}`);
+  revalidateEntryPaths(boardId);
 }
 
 export async function toggleEntryDone(id: string, done: boolean) {

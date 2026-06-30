@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabasePublishableKey, getSupabaseUrl } from "./env";
 
@@ -22,7 +22,7 @@ export const createClient = cache(async () => {
           cookiesToSet: Array<{
             name: string;
             value: string;
-            options: any;
+            options: CookieOptions;
           }>,
         ) {
           try {

@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import {
   applyBoardPreviewItem,
   createBoardWithWizard,
   getBoard,
 } from "@/actions/boards";
 import { getActiveSpace } from "@/actions/space";
+import { revalidateAppData } from "@/lib/revalidate";
 import { inferProjectType } from "@/lib/ai-classify";
 import type {
   InboxPreviewItem,
@@ -22,16 +22,6 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Category, Space } from "@/lib/types";
 import type { ViewSpace } from "@/lib/spaces";
 import { parseSpaceLinePrefix } from "@/lib/space-input";
-
-function revalidateInboxPaths(boardId?: string | null) {
-  revalidatePath("/inbox");
-  revalidatePath("/");
-  revalidatePath("/todo");
-  revalidatePath("/schedule");
-  revalidatePath("/memo");
-  revalidatePath("/boards");
-  if (boardId) revalidatePath(`/boards/${boardId}`);
-}
 
 function pickDefaultCategory(categories: Category[], space: Space) {
   const preferred = space === "work" ? "업무" : "기타";
@@ -320,7 +310,7 @@ export async function saveInboxPreview(
 
   if (logError) throw new Error(logError.message);
 
-  revalidateInboxPaths(boardId);
+  revalidateAppData(boardId);
 
   return {
     logId: log.id,

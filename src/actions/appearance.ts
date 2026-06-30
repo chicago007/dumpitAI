@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidateAppLayout } from "@/lib/revalidate";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   APPEARANCE_THEME_COOKIE,
@@ -10,10 +10,6 @@ import {
 } from "@/lib/appearance-themes";
 
 const DEFAULT_THEME: AppearanceThemeId = "default";
-
-function revalidateAll() {
-  revalidatePath("/", "layout");
-}
 
 export async function getAppearanceTheme(): Promise<AppearanceThemeId> {
   const cookieStore = await cookies();
@@ -53,7 +49,7 @@ export async function setAppearanceTheme(theme: AppearanceThemeId) {
     sameSite: "lax",
   });
 
-  revalidateAll();
+  revalidateAppLayout();
 }
 
 export async function persistAppearanceTheme(theme: AppearanceThemeId) {
