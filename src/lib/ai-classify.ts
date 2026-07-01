@@ -137,15 +137,20 @@ export async function classifyWithAI(
   }
 }
 
+import type { BoardProjectType } from "@/lib/board-types";
+import type { Space } from "@/lib/spaces";
+
 export function inferProjectType(
   projectName: string,
-): "travel" | "business" | "custom" {
+  space?: Space,
+): BoardProjectType {
   const lower = projectName.toLowerCase();
   if (/여행|휴가|관광|오사카|도쿄|동경|제주|부산|해외/.test(lower)) {
     return "travel";
   }
   if (/출장|미팅|업무|회의|프로젝트/.test(lower)) {
-    return "business";
+    return space === "work" ? "work" : "business";
   }
+  if (space === "work") return "work";
   return "custom";
 }

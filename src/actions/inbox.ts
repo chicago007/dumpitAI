@@ -165,6 +165,8 @@ function resolveProjectSpace(
   }
 
   if (preview.isProjectBlock && preview.project) {
+    if (preview.suggestedSpace) return preview.suggestedSpace;
+    if (viewSpace !== "all") return viewSpace;
     return "personal";
   }
 
@@ -249,7 +251,10 @@ export async function saveInboxPreview(
     const projectSpace = resolveProjectSpace(validated, viewSpace);
 
     if (validated.project && projectSpace) {
-      const projectType = inferProjectType(validated.project);
+      const projectType =
+        projectSpace === "work"
+          ? inferProjectType(validated.project, "work")
+          : inferProjectType(validated.project);
       const defaultCategory = defaultCategoryFor(projectSpace);
       const useTemplateItems =
         validated.isProjectBlock && validated.items.length === 0;

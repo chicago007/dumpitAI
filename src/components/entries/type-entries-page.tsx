@@ -11,7 +11,7 @@ import { isTemplateEntry } from "@/lib/travel-checklist-template";
 import { TRAVEL_CATEGORY_NAME } from "@/lib/travel";
 import { loadCategories, loadEntries } from "@/lib/app-data";
 import { syncTravelChecklistEntries } from "@/lib/sync-travel-checklist";
-import { getTravelChecklistTemplate } from "@/actions/travel-checklist-settings";
+import { getChecklistTemplateForSpace } from "@/actions/travel-checklist-settings";
 import { getActiveTravelPlans } from "@/actions/travel-plan";
 import { getActiveSpace } from "@/actions/space";
 import { groupTravelPrepTodos } from "@/lib/travel-plan";
@@ -81,10 +81,15 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
     await syncTravelChecklistEntries(travelCategory.id);
   }
 
-  const travelTemplate =
-    type === "checklist" && isPersonal
-      ? await getTravelChecklistTemplate()
+  const checklistTemplate =
+    type === "checklist" && activeSpace !== "all"
+      ? await getChecklistTemplateForSpace(activeSpace)
       : null;
+
+  const travelTemplate =
+    type === "checklist" && isPersonal ? checklistTemplate : null;
+  const workTemplate =
+    type === "checklist" && activeSpace === "work" ? checklistTemplate : null;
 
   const entriesResult = await loadEntries(
     type === "checklist"
@@ -207,11 +212,19 @@ export async function TypeEntriesPage({ type }: { type: EntryType }) {
     <main className="mx-auto max-w-2xl px-4 py-6 space-y-4">
       <EntryListHeader
         title={`${label} · ${VIEW_SPACE_LABELS[activeSpace]}`}
-        subtitle="여행 체크리스트를 편집하고, 여행 입력 시 할일로 자동 생성되는 항목을 관리합니다."
+        subtitle={
+          activeSpace === "work"
+            ? "업무 프로젝트 체크리스트를 편집하고 항목을 관리합니다."
+            : "여행 체크리스트를 편집하고, 여행 입력 시 할일로 자동 생성되는 항목을 관리합니다."
+        }
       />
 
+      {workTemplate && (
+        <ChecklistTemplateEditor initialTemplate={workTemplate} space="work" />
+      )}
+
       {travelTemplate && (
-        <ChecklistTemplateEditor initialTemplate={travelTemplate} />
+        <ChecklistTemplateEditor initialTemplate={travelTemplate} space="personal" />
       )}
 
       {travelCategory && travelTemplate && (

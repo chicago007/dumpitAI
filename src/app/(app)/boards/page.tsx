@@ -49,10 +49,9 @@ export default async function BoardsPage() {
       description="관련 할 일을 묶고 진행률을 한눈에 확인합니다"
       actions={
         <BoardWizard
-          activeSpace={activeSpace === "all" ? "personal" : activeSpace}
+          activeSpace={activeSpace}
           categories={categories.filter(
-            (c) =>
-              activeSpace === "all" || c.space === activeSpace,
+            (c) => activeSpace === "all" || c.space === activeSpace,
           )}
         />
       }

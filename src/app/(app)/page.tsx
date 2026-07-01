@@ -1,7 +1,8 @@
 import { SmartInput } from "@/components/capture/smart-input";
 import { EntryList } from "@/components/entries/entry-list";
 import { ActiveProjectBoards } from "@/components/boards/active-project-boards";
-import { PageShell, SectionCard } from "@/components/layout/page-shell";
+import { CollapsibleSectionCard } from "@/components/layout/collapsible-section-card";
+import { PageShell } from "@/components/layout/page-shell";
 import { DetectedTravelHints } from "@/components/travel/detected-travel-hints";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { getBoardsWithProgress } from "@/actions/boards";
@@ -144,8 +145,7 @@ export default async function HomePage({
       <div className="space-y-1">
         <ActiveProjectBoards boards={boards} />
 
-        <SectionCard
-          plain
+        <CollapsibleSectionCard
           title={`오늘 할 일 (${todayTodos.length})`}
           contentClassName={
             todayTodos.length === 0 ? "px-3 py-1" : undefined
@@ -162,9 +162,9 @@ export default async function HomePage({
               compact: true,
             }}
           />
-        </SectionCard>
+        </CollapsibleSectionCard>
 
-        <SectionCard plain title={`이번 주 일정 (${weekSchedules.length})`}>
+        <CollapsibleSectionCard title={`이번 주 일정 (${weekSchedules.length})`}>
           <EntryList
             entries={weekSchedules}
             categories={categories}
@@ -177,9 +177,9 @@ export default async function HomePage({
               actionLabel: "일정 추가",
             }}
           />
-        </SectionCard>
+        </CollapsibleSectionCard>
 
-        <SectionCard plain title={`최근 메모 (${recentMemos.length})`}>
+        <CollapsibleSectionCard title={`최근 메모 (${recentMemos.length})`}>
           <EntryList
             entries={recentMemos}
             categories={categories}
@@ -192,7 +192,7 @@ export default async function HomePage({
               actionLabel: "메모 추가",
             }}
           />
-        </SectionCard>
+        </CollapsibleSectionCard>
       </div>
     </PageShell>
   );

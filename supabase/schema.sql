@@ -131,6 +131,7 @@ ALTER TABLE public.entries
 CREATE TABLE IF NOT EXISTS user_settings (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   travel_checklist_template JSONB,
+  work_checklist_template JSONB,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

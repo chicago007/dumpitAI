@@ -378,7 +378,8 @@ export async function createBoardWithWizard(rawInput: {
   if (!user) throw new Error("로그인이 필요합니다.");
 
   const viewSpace = input.space ?? (await getActiveSpace());
-  const space: Space = viewSpace === "all" ? "personal" : viewSpace;
+  const space: Space =
+    input.space ?? (viewSpace === "all" ? "personal" : viewSpace);
   const name = input.name.trim();
   if (!name) throw new Error("보드 이름을 입력해 주세요.");
 

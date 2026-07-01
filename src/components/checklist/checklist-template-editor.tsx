@@ -11,8 +11,12 @@ import {
 } from "@/lib/travel-checklist-template";
 import {
   resetTravelChecklistTemplate,
+  resetWorkChecklistTemplate,
   saveTravelChecklistTemplate,
+  saveWorkChecklistTemplate,
 } from "@/actions/travel-checklist-settings";
+import { getProjectTemplate } from "@/lib/board-templates";
+import type { Space } from "@/lib/spaces";
 
 interface EditorGroup {
   name: string;
@@ -41,10 +45,25 @@ function newItemId() {
   return `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function defaultWorkTemplate(): TravelChecklistGroup[] {
+  const groups = getProjectTemplate("work").checklistGroups;
+  return groups.map((group) => ({
+    name: group.name,
+    rows: [
+      group.items.map((label, index) => ({
+        id: `work-${group.name}-${index}`,
+        label,
+      })),
+    ],
+  }));
+}
+
 export function ChecklistTemplateEditor({
   initialTemplate,
+  space = "personal",
 }: {
   initialTemplate: TravelChecklistGroup[];
+  space?: Space;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -131,12 +150,19 @@ export function ChecklistTemplateEditor({
     setGroups((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const isWork = space === "work";
+
   function handleSave() {
     setError(null);
     setMessage(null);
     startTransition(async () => {
       try {
-        await saveTravelChecklistTemplate(toTemplate(groups));
+        const template = toTemplate(groups);
+        if (isWork) {
+          await saveWorkChecklistTemplate(template);
+        } else {
+          await saveTravelChecklistTemplate(template);
+        }
         setMessage("체크리스트 항목을 저장했습니다.");
         router.refresh();
       } catch (err) {
@@ -150,10 +176,15 @@ export function ChecklistTemplateEditor({
     setMessage(null);
     startTransition(async () => {
       try {
-        await resetTravelChecklistTemplate();
-        setGroups(
-          toEditorGroups(cloneTemplate(DEFAULT_TRAVEL_CHECKLIST_TEMPLATE)),
-        );
+        if (isWork) {
+          await resetWorkChecklistTemplate();
+          setGroups(toEditorGroups(cloneTemplate(defaultWorkTemplate())));
+        } else {
+          await resetTravelChecklistTemplate();
+          setGroups(
+            toEditorGroups(cloneTemplate(DEFAULT_TRAVEL_CHECKLIST_TEMPLATE)),
+          );
+        }
         setMessage("기본 체크리스트로 되돌렸습니다.");
         router.refresh();
       } catch (err) {
@@ -169,14 +200,16 @@ export function ChecklistTemplateEditor({
         onClick={() => setOpen((v) => !v)}
         className="text-sm font-medium text-sky-700 hover:text-sky-900"
       >
-        {open ? "▾ 항목 편집 닫기" : "▸ 체크리스트 항목·세부항목 편집"}
+        {open ? "▾ 항목 편집 닫기" : "▸ 프로젝트 체크리스트 항목·세부항목 편집"}
       </button>
 
       {open && (
         <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
           <p className="mb-4 text-xs text-slate-500">
-            구분(기본, 위생용품 등)과 세부 항목을 수정할 수 있습니다. 여행
-            입력 시 할일이 이 목록을 참고해 자동 생성됩니다.
+            구분과 세부 항목을 수정할 수 있습니다.{" "}
+            {isWork
+              ? "업무 프로젝트 생성 시 이 목록이 체크리스트 기본값으로 사용됩니다."
+              : "여행 입력 시 할일이 이 목록을 참고해 자동 생성됩니다."}
           </p>
 
           <div className="space-y-5">

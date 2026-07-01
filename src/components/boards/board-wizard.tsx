@@ -16,6 +16,11 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import type { Category, Space } from "@/lib/types";
+import type { ViewSpace } from "@/lib/spaces";
+import {
+  getDefaultCategoryNameForSpace,
+  SPACE_LABELS,
+} from "@/lib/spaces";
 import { cn } from "@/lib/utils";
 
 const BOARD_COLORS = [
@@ -36,18 +41,26 @@ const PROJECT_TYPES: BoardProjectType[] = [
   "custom",
 ];
 
+function defaultProjectTypeForSpace(space: Space): BoardProjectType {
+  return space === "work" ? "work" : "travel";
+}
+
 interface BoardWizardProps {
-  activeSpace: Space;
+  activeSpace: ViewSpace;
   categories: Category[];
 }
 
 export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
   const router = useRouter();
+  const initialSpace: Space = activeSpace === "all" ? "personal" : activeSpace;
+  const [targetSpace, setTargetSpace] = useState<Space>(initialSpace);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [color, setColor] = useState(BOARD_COLORS[0]);
-  const [projectType, setProjectType] = useState<BoardProjectType>("travel");
+  const [projectType, setProjectType] = useState<BoardProjectType>(
+    defaultProjectTypeForSpace(initialSpace),
+  );
   const [destination, setDestination] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -57,8 +70,11 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const spaceCategories = categories.filter((c) => c.space === targetSpace);
   const defaultCategory =
-    categories.find((c) => c.name === "기타") ?? categories[0];
+    spaceCategories.find(
+      (c) => c.name === getDefaultCategoryNameForSpace(targetSpace),
+    ) ?? spaceCategories[0];
 
   function reset() {
     setStep(0);
@@ -68,6 +84,13 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
     setEndDate("");
     setBudgetText("");
     setError(null);
+    setTargetSpace(initialSpace);
+    setProjectType(defaultProjectTypeForSpace(initialSpace));
+  }
+
+  function handleSpaceChange(space: Space) {
+    setTargetSpace(space);
+    setProjectType(defaultProjectTypeForSpace(space));
   }
 
   function handleCreate() {
@@ -81,7 +104,7 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
         const id = await createBoardWithWizard({
           name,
           color,
-          space: activeSpace,
+          space: targetSpace,
           projectType,
           startDate: startDate || null,
           endDate: endDate || null,
@@ -135,6 +158,28 @@ export function BoardWizard({ activeSpace, categories }: BoardWizardProps) {
 
           {step === 0 && (
             <div className="mt-4 space-y-4">
+              {activeSpace === "all" && (
+                <div className="space-y-1.5">
+                  <Label>공간</Label>
+                  <div className="flex gap-2">
+                    {(["work", "personal"] as Space[]).map((space) => (
+                      <button
+                        key={space}
+                        type="button"
+                        onClick={() => handleSpaceChange(space)}
+                        className={cn(
+                          "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                          targetSpace === space
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border hover:bg-muted/50",
+                        )}
+                      >
+                        {SPACE_LABELS[space]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>{PROJECT_LABEL} 이름</Label>
                 <Input

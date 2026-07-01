@@ -11,7 +11,7 @@ import {
   sortCalendarDayEntries,
 } from "@/components/calendar/calendar-entry-row";
 import { EntryList } from "@/components/entries/entry-list";
-import { SectionCard } from "@/components/layout/page-shell";
+import { CollapsibleSectionCard } from "@/components/layout/collapsible-section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -458,8 +458,7 @@ export function CalendarView({
         </form>
       )}
 
-      <SectionCard
-        plain
+      <CollapsibleSectionCard
         title={`할 일 (${todos.length})`}
         className="mt-4"
         contentClassName="px-3 py-0.5"
@@ -535,10 +534,9 @@ export function CalendarView({
             compact: true,
           }}
         />
-      </SectionCard>
+      </CollapsibleSectionCard>
 
-      <SectionCard
-        plain
+      <CollapsibleSectionCard
         title={`메모 (${memos.length})`}
         className="mt-3"
         contentClassName="px-3 py-0.5"
@@ -600,7 +598,7 @@ export function CalendarView({
             compact: true,
           }}
         />
-      </SectionCard>
+      </CollapsibleSectionCard>
     </>
   );
 }
