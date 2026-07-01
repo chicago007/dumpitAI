@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { APP_NAME } from "@/lib/app-brand";
+import { AppBrandTitle } from "@/components/layout/app-brand-title";
 import { ENTRY_TYPE_THEMES } from "@/lib/entry-type-theme";
 import { PROJECT_LABEL } from "@/lib/project-labels";
 import type { SidebarCounts } from "@/actions/entries";
@@ -183,7 +183,7 @@ function SidebarContent({
           onClick={onNavigate}
           className="text-xl font-bold tracking-tight text-foreground"
         >
-          {APP_NAME}
+          <AppBrandTitle />
         </Link>
         <ThemeToggle activeTheme={activeTheme} />
       </div>
@@ -290,7 +290,7 @@ export function Sidebar({
           <Menu className="h-5 w-5" />
         </Button>
         <Link href="/" className="text-base font-bold text-foreground">
-          {APP_NAME}
+          <AppBrandTitle />
         </Link>
         <div className="ml-auto flex items-center gap-1">
           <Button

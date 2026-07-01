@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { APP_NAME, APP_TAGLINE } from "@/lib/app-brand";
+import { APP_TAGLINE } from "@/lib/app-brand";
+import { AppBrandTitle } from "@/components/layout/app-brand-title";
 import { hasSupabaseClientEnv } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,10 +67,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
+    <div
+      data-theme="default"
+      className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 text-slate-900"
+    >
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">{APP_NAME}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            <AppBrandTitle versionClassName="text-slate-400" />
+          </h1>
           <p className="mt-1 text-sm text-slate-500">{APP_TAGLINE}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -80,6 +86,7 @@ export default function LoginPage() {
             placeholder="이메일"
             required
             disabled={!envReady || loading}
+            className="border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
           />
           <Input
             type="password"
@@ -88,24 +95,25 @@ export default function LoginPage() {
             placeholder="비밀번호"
             required
             disabled={!envReady || loading}
+            className="border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
           />
           {error && (
-            <p className="text-sm text-destructive" role="alert">
+            <p className="text-sm text-red-600" role="alert">
               {error}
             </p>
           )}
           <Button
             type="submit"
             disabled={!envReady || loading}
-            className="w-full"
+            className="w-full bg-slate-900 text-white hover:bg-slate-800"
             size="lg"
           >
             {loading ? "로그인 중..." : "로그인"}
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="mt-4 text-center text-sm text-slate-500">
           계정이 없으신가요?{" "}
-          <Link href="/signup" className="text-primary hover:underline">
+          <Link href="/signup" className="text-blue-600 hover:underline">
             회원가입
           </Link>
         </p>
