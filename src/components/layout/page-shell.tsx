@@ -129,7 +129,7 @@ export function SectionCard({
       )}
       <div
         className={cn(
-          noPadding ? "" : "px-3 py-1",
+          noPadding ? "" : "px-3 py-0.5",
           contentClassName,
         )}
       >

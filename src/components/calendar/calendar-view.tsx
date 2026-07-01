@@ -462,7 +462,7 @@ export function CalendarView({
         plain
         title={`할 일 (${todos.length})`}
         className="mt-4"
-        contentClassName="px-3 py-1"
+        contentClassName="px-3 py-0.5"
         headerActions={renderAddToggle(showTodoForm, toggleTodoForm, "할 일 추가")}
       >
         {showTodoForm && (
@@ -541,7 +541,7 @@ export function CalendarView({
         plain
         title={`메모 (${memos.length})`}
         className="mt-3"
-        contentClassName="px-3 py-1"
+        contentClassName="px-3 py-0.5"
         headerActions={renderAddToggle(showMemoForm, toggleMemoForm, "메모 추가")}
       >
         {showMemoForm && (

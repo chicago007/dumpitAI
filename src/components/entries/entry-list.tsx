@@ -55,9 +55,9 @@ export function EntryList({
     <ul
       className={cn(
         accentRow
-          ? "flex flex-col gap-0"
+          ? "flex flex-col gap-0.5"
           : cardRow
-            ? "flex flex-col gap-0.5"
+            ? "flex flex-col gap-1"
             : "divide-y divide-border/50",
       )}
     >

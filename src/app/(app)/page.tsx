@@ -143,7 +143,7 @@ export default async function HomePage({
 
       <ActiveProjectBoards boards={boards} />
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         <SectionCard
           plain
           title={`오늘 할 일 (${todayTodos.length})`}
