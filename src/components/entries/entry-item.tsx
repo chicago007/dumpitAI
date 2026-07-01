@@ -182,7 +182,7 @@ export function EntryItem({
 
   if (isEditing) {
     return (
-      <li className="py-3 first:pt-0">
+      <li className="py-1.5 first:pt-0">
         <div className="rounded-xl border border-border/60 bg-muted/40 p-4">
           <Textarea
             value={content}
@@ -337,12 +337,12 @@ export function EntryItem({
   return (
     <li
       className={cn(
-        "group flex items-center gap-2.5",
+        "group relative flex h-10 min-h-10 items-center gap-2",
         accentRow
-          ? "border-l-[3px] bg-muted/20 px-3 py-3"
+          ? "border-l-[3px] bg-muted/20 px-3"
           : cardRow
-            ? "rounded-lg border border-border/50 bg-muted/25 px-3 py-2.5 shadow-sm"
-            : "py-2.5 first:pt-0",
+            ? "rounded-lg border border-border/50 bg-muted/25 px-3 shadow-sm"
+            : "first:pt-0",
       )}
       style={
         accentRow
@@ -362,7 +362,7 @@ export function EntryItem({
       )}
       <p
         className={cn(
-          "min-w-0 flex-1 truncate text-sm leading-snug",
+          "min-w-0 flex-1 truncate text-sm leading-none",
           isDone
             ? "text-muted-foreground line-through"
             : "text-foreground font-medium",
@@ -370,15 +370,15 @@ export function EntryItem({
       >
         {entry.content}
       </p>
-      <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-1.5 text-xs leading-none text-muted-foreground">
         {showSpaceBadge && (
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 font-medium">
+          <span className="shrink-0 rounded-md bg-muted px-1.5 py-px font-medium">
             {SPACE_LABELS[entrySpace]}
           </span>
         )}
         {showTypeBadge && (
           <span
-            className="shrink-0 rounded-md px-1.5 py-0.5 font-medium"
+            className="shrink-0 rounded-md px-1.5 py-px font-medium"
             style={{
               backgroundColor: `${typeTheme.color}18`,
               color: typeTheme.color,
@@ -393,7 +393,7 @@ export function EntryItem({
           <>
             {category && (
               <span
-                className="inline-flex max-w-[5.5rem] items-center gap-1 truncate rounded-md px-1.5 py-0.5 font-medium sm:max-w-none"
+                className="inline-flex max-w-[5.5rem] items-center gap-1 truncate rounded-md px-1.5 py-px font-medium sm:max-w-none"
                 style={{
                   backgroundColor: `${category.color}18`,
                   color: category.color,
@@ -426,16 +426,22 @@ export function EntryItem({
           </>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+      <div
+        className={cn(
+          "flex shrink-0 items-center gap-0 opacity-100 transition-opacity",
+          "md:absolute md:right-1 md:top-1/2 md:-translate-y-1/2",
+          "md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+        )}
+      >
         <Button
           type="button"
           variant="ghost"
           size="icon"
           onClick={() => setIsEditing(true)}
-          className="h-9 w-9 text-muted-foreground"
+          className="h-7 w-7 text-muted-foreground"
           aria-label="수정"
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button"
@@ -443,10 +449,10 @@ export function EntryItem({
           size="icon"
           onClick={handleDelete}
           disabled={isPending}
-          className="h-9 w-9 text-muted-foreground hover:text-destructive"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive"
           aria-label="삭제"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
     </li>

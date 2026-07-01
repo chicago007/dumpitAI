@@ -69,7 +69,7 @@ export function CalendarEntryRow({
       onKeyDown={canToggle ? handleKeyDown : undefined}
       className={cn(
         "flex min-w-0 items-center gap-1 rounded-sm px-0.5",
-        variant === "compact" ? "py-px" : "py-1",
+        variant === "compact" ? "py-px" : "py-0.5",
         canToggle && "cursor-pointer hover:bg-muted/50",
         isDone && "opacity-55",
         isPending && "opacity-40",

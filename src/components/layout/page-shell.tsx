@@ -95,7 +95,7 @@ export function SectionCard({
       {(title || description) && (
         <div
           className={cn(
-            "px-3.5 py-2.5",
+            "px-3.5 py-2",
             !plain && "border-b border-border/50",
           )}
         >
@@ -129,7 +129,7 @@ export function SectionCard({
       )}
       <div
         className={cn(
-          noPadding ? "" : "px-3 py-3",
+          noPadding ? "" : "px-3 py-1",
           contentClassName,
         )}
       >

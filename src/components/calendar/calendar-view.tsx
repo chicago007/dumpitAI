@@ -384,7 +384,7 @@ export function CalendarView({
       {selectedDayKey && selectedDayEntries.length > 0 && (
         <section
           ref={dayDetailRef}
-          className="mt-4 rounded-xl border border-border bg-card p-4"
+          className="mt-3 rounded-xl border border-border bg-card p-3"
         >
           <button
             type="button"
@@ -407,7 +407,7 @@ export function CalendarView({
           </button>
 
           {dayDetailExpanded ? (
-            <div className="mt-3">
+            <div className="mt-2">
               <EntryList
                 entries={selectedDayEntries}
                 categories={categories}
@@ -421,9 +421,9 @@ export function CalendarView({
       {selectedDayKey && (
         <form
           onSubmit={handleAddSchedule}
-          className="mt-4 rounded-xl border border-border bg-card p-4"
+          className="mt-3 rounded-xl border border-border bg-card p-3"
         >
-          <p className="mb-2 text-sm font-medium text-foreground">
+          <p className="mb-1.5 text-sm font-medium text-foreground">
             {formatDayLabel(selectedDayKey)} 일정 추가
           </p>
           <div className="flex gap-2">
@@ -461,12 +461,12 @@ export function CalendarView({
       <SectionCard
         plain
         title={`할 일 (${todos.length})`}
-        className="mt-6"
-        contentClassName="p-3"
+        className="mt-4"
+        contentClassName="px-3 py-1"
         headerActions={renderAddToggle(showTodoForm, toggleTodoForm, "할 일 추가")}
       >
         {showTodoForm && (
-          <form onSubmit={handleAddTodo} className="mb-3 space-y-2">
+          <form onSubmit={handleAddTodo} className="mb-2 space-y-2">
             <Input
               ref={todoInputRef}
               id="calendar-todo-input"
@@ -540,12 +540,12 @@ export function CalendarView({
       <SectionCard
         plain
         title={`메모 (${memos.length})`}
-        className="mt-4"
-        contentClassName="p-3"
+        className="mt-3"
+        contentClassName="px-3 py-1"
         headerActions={renderAddToggle(showMemoForm, toggleMemoForm, "메모 추가")}
       >
         {showMemoForm && (
-          <form onSubmit={handleAddMemo} className="mb-3 space-y-2">
+          <form onSubmit={handleAddMemo} className="mb-2 space-y-2">
             <Input
               ref={memoInputRef}
               id="calendar-memo-input"
