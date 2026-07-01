@@ -23,7 +23,7 @@ import {
 } from "@/lib/dates";
 import { isKoreanHoliday } from "@/lib/korean-holidays";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface CalendarViewProps {
   year: number;
@@ -57,21 +57,25 @@ export function CalendarView({
   memos,
 }: CalendarViewProps) {
   const router = useRouter();
-  const dayDetailRef = useRef<HTMLElement>(null);
+  const daySectionsRef = useRef<HTMLDivElement>(null);
   const [selectedDayKey, setSelectedDayKey] = useState(todayKey);
-  const [dayDetailExpanded, setDayDetailExpanded] = useState(true);
+  const [expandedOverflowDayKey, setExpandedOverflowDayKey] = useState<
+    string | null
+  >(null);
   const [scheduleText, setScheduleText] = useState("");
   const [todoText, setTodoText] = useState("");
   const [todoDueDate, setTodoDueDate] = useState("");
   const [memoText, setMemoText] = useState("");
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [showTodoForm, setShowTodoForm] = useState(false);
   const [showMemoForm, setShowMemoForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [todoError, setTodoError] = useState<string | null>(null);
   const [memoError, setMemoError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSchedulePending, startScheduleTransition] = useTransition();
   const [isTodoPending, startTodoTransition] = useTransition();
   const [isMemoPending, startMemoTransition] = useTransition();
+  const scheduleInputRef = useRef<HTMLInputElement>(null);
   const todoInputRef = useRef<HTMLInputElement>(null);
   const memoInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,6 +94,12 @@ export function CalendarView({
   const defaultCategoryId = categories[0]?.id ?? "";
 
   useEffect(() => {
+    if (showScheduleForm) {
+      scheduleInputRef.current?.focus();
+    }
+  }, [showScheduleForm]);
+
+  useEffect(() => {
     if (showTodoForm) {
       setTodoDueDate((prev) => prev || selectedDayKey);
       todoInputRef.current?.focus();
@@ -101,6 +111,16 @@ export function CalendarView({
       memoInputRef.current?.focus();
     }
   }, [showMemoForm]);
+
+  function toggleScheduleForm() {
+    setShowScheduleForm((prev) => {
+      if (prev) {
+        setScheduleText("");
+        setScheduleError(null);
+      }
+      return !prev;
+    });
+  }
 
   function toggleTodoForm() {
     setShowTodoForm((prev) => {
@@ -152,44 +172,40 @@ export function CalendarView({
     return sortCalendarDayEntries(entriesByDay[selectedDayKey] ?? []);
   }, [selectedDayKey, entriesByDay]);
 
+  const selectedDaySchedules = useMemo(
+    () =>
+      selectedDayEntries.filter(
+        (entry) => entry.type === "schedule" && entry.status === "active",
+      ),
+    [selectedDayEntries],
+  );
+
+  function scrollToDaySections() {
+    requestAnimationFrame(() => {
+      daySectionsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    });
+  }
+
   function selectDay(dayKey: string) {
     setSelectedDayKey(dayKey);
-    setDayDetailExpanded(true);
-    requestAnimationFrame(() => {
-      dayDetailRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    });
-  }
-
-  function expandDayDetail(dayKey: string) {
-    setSelectedDayKey(dayKey);
-    setDayDetailExpanded(true);
-    requestAnimationFrame(() => {
-      dayDetailRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    });
-  }
-
-  function collapseDayDetail() {
-    setDayDetailExpanded(false);
-  }
-
-  function toggleDayDetail() {
-    setDayDetailExpanded((prev) => !prev);
+    if (expandedOverflowDayKey !== dayKey) {
+      setExpandedOverflowDayKey(null);
+    }
+    scrollToDaySections();
   }
 
   function handleOverflowExpand(e: React.MouseEvent, dayKey: string) {
     e.stopPropagation();
-    expandDayDetail(dayKey);
+    setSelectedDayKey(dayKey);
+    setExpandedOverflowDayKey(dayKey);
   }
 
   function handleOverflowCollapse(e: React.MouseEvent) {
     e.stopPropagation();
-    collapseDayDetail();
+    setExpandedOverflowDayKey(null);
   }
 
   function handleAddSchedule(e: React.FormEvent) {
@@ -197,8 +213,8 @@ export function CalendarView({
     const trimmed = scheduleText.trim();
     if (!trimmed || !selectedDayKey || !defaultCategoryId) return;
 
-    setError(null);
-    startTransition(async () => {
+    setScheduleError(null);
+    startScheduleTransition(async () => {
       try {
         await createEntry({
           content: trimmed,
@@ -207,9 +223,10 @@ export function CalendarView({
           dueAt: new Date(`${selectedDayKey}T09:00:00+09:00`).toISOString(),
         });
         setScheduleText("");
+        setShowScheduleForm(false);
         router.refresh();
       } catch (err) {
-        setError(
+        setScheduleError(
           err instanceof Error ? err.message : "일정 저장에 실패했습니다.",
         );
       }
@@ -325,8 +342,13 @@ export function CalendarView({
           const dayEntries = sortCalendarDayEntries(
             entriesByDay[cell.key] ?? [],
           );
-          const visibleEntries = dayEntries.slice(0, CALENDAR_DAY_EVENT_LIMIT);
-          const overflowCount = dayEntries.length - visibleEntries.length;
+          const isOverflowExpanded = expandedOverflowDayKey === cell.key;
+          const visibleEntries = isOverflowExpanded
+            ? dayEntries
+            : dayEntries.slice(0, CALENDAR_DAY_EVENT_LIMIT);
+          const overflowCount = isOverflowExpanded
+            ? 0
+            : Math.max(0, dayEntries.length - CALENDAR_DAY_EVENT_LIMIT);
           const cellDate = seoulCalendarDate(
             cell.parts.year,
             cell.parts.month0,
@@ -367,100 +389,94 @@ export function CalendarView({
                 {visibleEntries.map((entry) => (
                   <CalendarEntryRow key={entry.id} entry={entry} />
                 ))}
-                <CalendarDayOverflow
-                  count={overflowCount}
-                  isExpanded={
-                    isSelected && dayDetailExpanded && overflowCount > 0
-                  }
-                  onExpand={(e) => handleOverflowExpand(e, cell.key)}
-                  onCollapse={handleOverflowCollapse}
-                />
+                {(overflowCount > 0 || isOverflowExpanded) && (
+                  <CalendarDayOverflow
+                    count={overflowCount}
+                    isExpanded={isOverflowExpanded}
+                    onExpand={(e) => handleOverflowExpand(e, cell.key)}
+                    onCollapse={handleOverflowCollapse}
+                  />
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {selectedDayKey && selectedDayEntries.length > 0 && (
-        <section
-          ref={dayDetailRef}
-          className="mt-3 rounded-xl border border-border bg-card p-3"
-        >
-          <button
-            type="button"
-            onClick={toggleDayDetail}
-            className="flex w-full items-center justify-between gap-2 text-left"
-            aria-expanded={dayDetailExpanded}
-          >
-            <h2 className="text-sm font-medium text-foreground">
-              {formatDayLabel(selectedDayKey)} · {selectedDayEntries.length}건
-            </h2>
-            <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-              {dayDetailExpanded ? "접기" : "펼치기"}
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform",
-                  dayDetailExpanded && "rotate-180",
-                )}
-              />
-            </span>
-          </button>
-
-          {dayDetailExpanded ? (
-            <div className="mt-2">
-              <EntryList
-                entries={selectedDayEntries}
-                categories={categories}
-                variant="cards"
-              />
-            </div>
-          ) : null}
-        </section>
-      )}
-
+      <div ref={daySectionsRef} className="mt-3 space-y-3">
       {selectedDayKey && (
-        <form
-          onSubmit={handleAddSchedule}
-          className="mt-3 rounded-xl border border-border bg-card p-3"
-        >
-          <p className="mb-1.5 text-sm font-medium text-foreground">
-            {formatDayLabel(selectedDayKey)} 일정 추가
-          </p>
-          <div className="flex gap-2">
-            <Input
-              id="calendar-schedule-input"
-              name="schedule"
-              autoComplete="off"
-              value={scheduleText}
-              onChange={(e) => {
-                setScheduleText(e.target.value);
-                setError(null);
-              }}
-              placeholder="일정 내용… Enter 저장"
-              disabled={isPending || !defaultCategoryId}
-              className="flex-1"
-              aria-label={`${formatDayLabel(selectedDayKey)} 일정 내용`}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={isPending || !scheduleText.trim() || !defaultCategoryId}
-              aria-label="일정 추가"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          {error && (
-            <p className="mt-2 text-sm text-destructive" role="alert">
-              {error}
-            </p>
+        <CollapsibleSectionCard
+          title={`${formatDayLabel(selectedDayKey)} 일정 (${selectedDaySchedules.length})`}
+          contentClassName="px-3 py-0.5"
+          headerActions={renderAddToggle(
+            showScheduleForm,
+            toggleScheduleForm,
+            "일정 추가",
           )}
-        </form>
+        >
+          {showScheduleForm && (
+            <form onSubmit={handleAddSchedule} className="mb-2 space-y-2">
+              <Input
+                ref={scheduleInputRef}
+                id="calendar-schedule-input"
+                name="schedule"
+                autoComplete="off"
+                value={scheduleText}
+                onChange={(e) => {
+                  setScheduleText(e.target.value);
+                  setScheduleError(null);
+                }}
+                placeholder="일정 내용…"
+                disabled={isSchedulePending || !defaultCategoryId}
+                className="w-full"
+                aria-label={`${formatDayLabel(selectedDayKey)} 일정 추가`}
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleScheduleForm}
+                >
+                  취소
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={
+                    isSchedulePending ||
+                    !scheduleText.trim() ||
+                    !defaultCategoryId
+                  }
+                >
+                  {isSchedulePending ? "저장 중…" : "저장"}
+                </Button>
+              </div>
+              {scheduleError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {scheduleError}
+                </p>
+              )}
+            </form>
+          )}
+          <EntryList
+            entries={selectedDaySchedules}
+            categories={categories}
+            variant="accent"
+            showCheckbox={false}
+            hideType
+            emptyState={{
+              message: "이 날짜에 등록된 일정이 없습니다",
+              entryType: "schedule",
+              actionLabel: "일정 추가",
+              compact: true,
+            }}
+          />
+        </CollapsibleSectionCard>
       )}
 
       <CollapsibleSectionCard
         title={`할 일 (${todos.length})`}
-        className="mt-4"
         contentClassName="px-3 py-0.5"
         headerActions={renderAddToggle(showTodoForm, toggleTodoForm, "할 일 추가")}
       >
@@ -538,7 +554,6 @@ export function CalendarView({
 
       <CollapsibleSectionCard
         title={`메모 (${memos.length})`}
-        className="mt-3"
         contentClassName="px-3 py-0.5"
         headerActions={renderAddToggle(showMemoForm, toggleMemoForm, "메모 추가")}
       >
@@ -599,6 +614,7 @@ export function CalendarView({
           }}
         />
       </CollapsibleSectionCard>
+      </div>
     </>
   );
 }

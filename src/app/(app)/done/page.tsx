@@ -1,4 +1,5 @@
 import { CompletedEntriesSection } from "@/components/entries/completed-entries-section";
+import { CollapsibleSectionCard } from "@/components/layout/collapsible-section-card";
 import { SetupNotice } from "@/components/setup/setup-notice";
 import { getActiveSpace } from "@/actions/space";
 import { getDoneStats } from "@/actions/entries";
@@ -43,15 +44,18 @@ export default async function DonePage() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-3">
+      <CollapsibleSectionCard
+        title={`완료한 항목 (${doneResult.data.length})`}
+        contentClassName="px-3 py-2"
+      >
         <CompletedEntriesSection
           entries={doneResult.data}
           categories={categoriesResult.data}
           viewSpace={activeSpace}
-          contentClassName="space-y-4"
+          contentClassName="space-y-2"
           emptyMessage="완료한 항목이 없습니다."
         />
-      </div>
+      </CollapsibleSectionCard>
     </main>
   );
 }

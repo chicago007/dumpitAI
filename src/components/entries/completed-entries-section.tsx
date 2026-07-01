@@ -1,5 +1,8 @@
+"use client";
+
 import type { Category, Entry, EntryType } from "@/lib/types";
 import { EntryList } from "@/components/entries/entry-list";
+import { CollapsibleSectionCard } from "@/components/layout/collapsible-section-card";
 import { SectionCard } from "@/components/layout/page-shell";
 import { ENTRY_TYPE_THEMES } from "@/lib/entry-type-theme";
 import { getEntrySpace, SPACE_LABELS, type Space, type ViewSpace } from "@/lib/spaces";
@@ -86,12 +89,13 @@ export function CompletedEntriesSection({
   const groups = buildGroups(entries, viewSpace);
 
   const body = (
-    <>
+    <div className="space-y-2">
       {groups.map((group) => (
-        <div key={group.id}>
-          <h3 className="mb-1.5 text-xs font-semibold text-muted-foreground">
-            {group.title}
-          </h3>
+        <CollapsibleSectionCard
+          key={group.id}
+          title={`${group.title} (${group.entries.length})`}
+          contentClassName="px-3 py-0.5"
+        >
           <EntryList
             entries={group.entries}
             categories={categories}
@@ -99,9 +103,9 @@ export function CompletedEntriesSection({
             showSpaceBadge={viewSpace === "all"}
             compactMeta={false}
           />
-        </div>
+        </CollapsibleSectionCard>
       ))}
-    </>
+    </div>
   );
 
   if (title) {
