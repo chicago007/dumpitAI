@@ -141,9 +141,9 @@ export default async function HomePage({
 
       <SmartInput />
 
-      <ActiveProjectBoards boards={boards} />
-
       <div className="space-y-1">
+        <ActiveProjectBoards boards={boards} />
+
         <SectionCard
           plain
           title={`오늘 할 일 (${todayTodos.length})`}

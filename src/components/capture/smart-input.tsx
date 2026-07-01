@@ -73,6 +73,7 @@ function kindIcon(kind: InboxItemKind) {
 function PreviewItemRow({
   item,
   isProjectBlock,
+  onContentChange,
   onKindChange,
   onSpaceChange,
   onDueAtChange,
@@ -81,6 +82,7 @@ function PreviewItemRow({
 }: {
   item: InboxPreviewItem;
   isProjectBlock: boolean;
+  onContentChange: (id: string, content: string) => void;
   onKindChange: (id: string, kind: InboxItemKind) => void;
   onSpaceChange?: (id: string, space: Space) => void;
   onDueAtChange?: (id: string, dueAt: string | null) => void;
@@ -118,7 +120,12 @@ function PreviewItemRow({
     <li className="flex flex-wrap items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1 space-y-1.5">
-        <p className="text-sm">{item.content}</p>
+        <Input
+          value={item.content}
+          onChange={(e) => onContentChange(item.id, e.target.value)}
+          className="h-9 text-sm"
+          aria-label="내용 수정"
+        />
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {item.dueAt && item.kind !== "schedule" && item.kind !== "period" && (
             <span>날짜 {item.dueAt.slice(0, 10)}</span>
@@ -204,6 +211,7 @@ function PreviewItemRow({
 function PreviewPanel({
   preview,
   items,
+  onContentChange,
   onKindChange,
   onSpaceChange,
   onSpaceChangeAll,
@@ -215,6 +223,7 @@ function PreviewPanel({
 }: {
   preview: InboxPreviewResult;
   items: InboxPreviewItem[];
+  onContentChange: (id: string, content: string) => void;
   onKindChange: (id: string, kind: InboxItemKind) => void;
   onSpaceChange: (id: string, space: Space) => void;
   onSpaceChangeAll: (space: Space) => void;
@@ -229,28 +238,49 @@ function PreviewPanel({
   isSaving: boolean;
 }) {
   const suggestedSpace = preview.suggestedSpace ?? items[0]?.targetSpace;
+  const canSave = items.every((item) => item.content.trim().length > 0);
 
   return (
-    <Card className="border-violet-200 bg-violet-50/30 dark:border-violet-900 dark:bg-violet-950/20">
+    <Card className="border-border/60 bg-card shadow-card">
       <CardContent className="space-y-4 p-4">
         <div className="flex items-start justify-between gap-2">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">분류 미리보기</p>
             <p className="text-xs text-muted-foreground">
               저장 전에 분류를 확인·수정하세요
             </p>
           </div>
-          {preview.project && (
-            <div className="flex items-center gap-1.5 text-sm">
-              <FolderKanban className="h-4 w-4 text-emerald-600" />
-              <span>{preview.project}</span>
-            </div>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {preview.project && (
+              <div className="hidden items-center gap-1.5 text-sm sm:flex">
+                <FolderKanban className="h-4 w-4 text-emerald-600" />
+                <span>{preview.project}</span>
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              onClick={onCancel}
+              disabled={isSaving}
+              aria-label="취소"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
+        {preview.project && (
+          <div className="flex items-center gap-1.5 text-sm sm:hidden">
+            <FolderKanban className="h-4 w-4 text-emerald-600" />
+            <span>{preview.project}</span>
+          </div>
+        )}
+
         {preview.needsSpaceConfirm && suggestedSpace && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5 dark:border-amber-900 dark:bg-amber-950/30">
-            <p className="text-sm text-amber-950 dark:text-amber-100">
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+            <p className="text-sm text-foreground">
               공간 추정:{" "}
               <strong>{SPACE_LABELS[suggestedSpace]}</strong> · 맞나요?
             </p>
@@ -292,18 +322,19 @@ function PreviewPanel({
                 key={item.id}
                 item={item}
                 isProjectBlock={preview.isProjectBlock}
+                onContentChange={onContentChange}
                 onKindChange={onKindChange}
                 onSpaceChange={onSpaceChange}
                 onDueAtChange={onDueAtChange}
                 onPeriodChange={onPeriodChange}
-                showSpaceSelect={preview.needsSpaceConfirm}
+                showSpaceSelect
               />
             ))}
           </ul>
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={onConfirm} disabled={isSaving}>
+          <Button type="button" onClick={onConfirm} disabled={isSaving || !canSave}>
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -316,10 +347,11 @@ function PreviewPanel({
           <Button
             type="button"
             variant="outline"
+            className="border-border bg-muted/40 text-foreground hover:bg-muted"
             onClick={onCancel}
             disabled={isSaving}
           >
-            다시 입력
+            취소
           </Button>
         </div>
       </CardContent>
@@ -648,6 +680,13 @@ export function SmartInput({
         <PreviewPanel
           preview={preview}
           items={items}
+          onContentChange={(id, content) =>
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === id ? { ...item, content } : item,
+              ),
+            )
+          }
           onKindChange={(id, kind) =>
             setItems((prev) =>
               prev.map((item) => {
@@ -703,6 +742,8 @@ export function SmartInput({
           onCancel={() => {
             setPreview(null);
             setItems([]);
+            setText("");
+            setError(null);
             collapseIfEmpty();
           }}
           isSaving={isBusy}
