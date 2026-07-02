@@ -49,9 +49,7 @@ const readActiveSpace = cache(async (): Promise<ViewSpace> => {
   }
 
   if (fromDb) {
-    if (fromCookie !== fromDb) {
-      cookieStore.set(SPACE_COOKIE, fromDb, SPACE_COOKIE_OPTIONS);
-    }
+    // 쿠키는 Server Action/Route Handler에서만 수정 가능 — 읽기 시 DB 값만 반환
     return fromDb;
   }
 
