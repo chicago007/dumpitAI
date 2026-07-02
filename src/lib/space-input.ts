@@ -2,6 +2,11 @@ import type { Space, ViewSpace } from "@/lib/spaces";
 import { inferSpaceFromRules } from "@/lib/space-infer";
 
 const SPACE_LINE_PREFIX = /^\/(업|업무|개|개인)\s*(.*)$/;
+const SPACE_LINE_SUFFIX = /^(.*?)\s*\/(업|업무|개|개인)\s*$/;
+
+function spaceFromToken(token: string): Space {
+  return token === "업" || token === "업무" ? "work" : "personal";
+}
 
 export interface ParsedSpaceInput {
   targetSpace: Space;
@@ -21,10 +26,20 @@ export function parseSpaceLinePrefix(
   const match = trimmed.match(SPACE_LINE_PREFIX);
 
   if (match) {
-    const isWork = match[1] === "업" || match[1] === "업무";
     const content = match[2].trim();
     return {
-      targetSpace: isWork ? "work" : "personal",
+      targetSpace: spaceFromToken(match[1]),
+      content: content || trimmed,
+      hadPrefix: true,
+      inferred: false,
+    };
+  }
+
+  const suffixMatch = trimmed.match(SPACE_LINE_SUFFIX);
+  if (suffixMatch) {
+    const content = suffixMatch[1].trim();
+    return {
+      targetSpace: spaceFromToken(suffixMatch[2]),
       content: content || trimmed,
       hadPrefix: true,
       inferred: false,

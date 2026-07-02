@@ -84,6 +84,8 @@ export interface UpdateEntryInput {
   type: EntryType;
   categoryId: string;
   dueAt?: string | null;
+  /** 완료일 — undefined면 기존 값 유지 */
+  completedAt?: string | null;
   destination?: string | null;
   amount?: number | null;
 }

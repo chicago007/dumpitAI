@@ -1,43 +1,14 @@
 import { extractDueDate } from "@/lib/classify";
 import type { AiInboxClassification, AiScheduleItem } from "@/lib/ai-inbox-types";
-import {
-  INBOX_PREFIX_ALIASES,
-  type InboxItemKind,
-} from "@/lib/ai-inbox-types";
+import type { InboxItemKind } from "@/lib/ai-inbox-types";
+import { parseLineTypePrefix } from "@/lib/line-type-prefix";
+
+export { parseLineTypePrefix } from "@/lib/line-type-prefix";
 
 const DEADLINE_PARTICLE = /까지|까진|까지는/;
 const TRAVEL_PROJECT =
   /(?:\d{1,2}\s*월\s*\d{1,2}\s*일\s*)?([가-힣A-Za-z0-9]+여행)\s*$/;
 const PROJECT_LINE = /^(?:프로젝트|@(?:p|프로젝트))\s*(.+)$/i;
-
-export function parseLineTypePrefix(line: string): {
-  forceKind: InboxItemKind | null;
-  content: string;
-} {
-  const trimmed = line.trim();
-  if (!trimmed.startsWith("@")) {
-    return { forceKind: null, content: trimmed };
-  }
-
-  const rest = trimmed.slice(1);
-  const keys = Object.keys(INBOX_PREFIX_ALIASES).sort(
-    (a, b) => b.length - a.length,
-  );
-
-  for (const key of keys) {
-    if (!rest.toLowerCase().startsWith(key.toLowerCase())) continue;
-
-    const afterKey = rest.slice(key.length);
-    const content = afterKey.trim();
-
-    return {
-      forceKind: INBOX_PREFIX_ALIASES[key],
-      content: content || trimmed,
-    };
-  }
-
-  return { forceKind: null, content: trimmed };
-}
 
 function forcedClassification(
   body: string,

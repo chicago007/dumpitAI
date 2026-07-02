@@ -1,4 +1,4 @@
-import { parseLineTypePrefix } from "@/lib/ai-inbox-normalize";
+import { parseLineTypePrefix } from "@/lib/line-type-prefix";
 import type { InboxItemKind } from "@/lib/ai-inbox-types";
 import {
   formatBoardDateRangeKo,

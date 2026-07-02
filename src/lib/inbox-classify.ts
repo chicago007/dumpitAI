@@ -21,6 +21,7 @@ import {
 import { formatBoardDateRangeKo, parseBoardDateRange } from "@/lib/board-date-range";
 import { parseBoardMoney, stripMoneyFromContent } from "@/lib/board-money";
 import { extractDueDate } from "@/lib/classify";
+import { parseMultiDayScheduleInput } from "@/lib/multi-day-schedule-input";
 import { parseSpaceLinePrefix } from "@/lib/space-input";
 import { inferSpaceForAllView, type SpaceInferSource } from "@/lib/space-infer";
 import type { Space, ViewSpace } from "@/lib/spaces";
@@ -284,10 +285,22 @@ async function classifyLineForPreview(
   }
 
   const spaceParsed = parseSpaceLinePrefix(line, viewSpace, { inferredSpace });
+  const spaceInferred = Boolean(spaceParsed.inferred);
+
+  const multiDaySchedules = parseMultiDayScheduleInput(line, viewSpace, {
+    inferredSpace,
+  });
+  if (multiDaySchedules && !isProjectBlock) {
+    return {
+      items: multiDaySchedules,
+      spaceInferred,
+      inferSource,
+    };
+  }
+
   const { forceKind, content } = parseLineTypePrefix(spaceParsed.content);
   const body = content || spaceParsed.content;
   const targetSpace = spaceParsed.targetSpace;
-  const spaceInferred = Boolean(spaceParsed.inferred);
 
   if (isProjectBlock) {
     if (forceKind) {

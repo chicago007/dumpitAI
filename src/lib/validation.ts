@@ -60,6 +60,7 @@ export const updateEntrySchema = z.object({
   type: entryType,
   categoryId: uuid,
   dueAt: z.string().max(64).nullable().optional(),
+  completedAt: z.string().max(64).nullable().optional(),
   destination: z.string().max(200).nullable().optional(),
   amount: finiteAmount.nullable().optional(),
 });

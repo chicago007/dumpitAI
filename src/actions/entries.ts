@@ -441,15 +441,20 @@ export async function updateEntry(input: UpdateEntryInput) {
     parsed.amount ?? null,
   );
 
+  const updates: Record<string, unknown> = {
+    content: parsed.content.trim(),
+    type: parsed.type,
+    category_id: parsed.categoryId,
+    due_at: parsed.dueAt ?? null,
+    metadata,
+  };
+  if (parsed.completedAt !== undefined) {
+    updates.completed_at = parsed.completedAt;
+  }
+
   const { error } = await supabase
     .from("entries")
-    .update({
-      content: parsed.content.trim(),
-      type: parsed.type,
-      category_id: parsed.categoryId,
-      due_at: parsed.dueAt ?? null,
-      metadata,
-    })
+    .update(updates)
     .eq("id", parsed.id)
     .eq("user_id", user.id);
 

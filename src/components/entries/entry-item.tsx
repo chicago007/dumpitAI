@@ -67,6 +67,7 @@ export function EntryItem({
   const category = entry.categories as Category | null | undefined;
   const travelMeta = getTravelMeta(entry.metadata ?? {});
   const isDone = entry.status === "done";
+  const isTodoLike = entry.type === "todo" || entry.type === "checklist";
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(entry.content);
   const [type, setType] = useState<EntryType>(entry.type);
@@ -74,6 +75,9 @@ export function EntryItem({
     entry.category_id ?? categories[0]?.id ?? "",
   );
   const [dueDate, setDueDate] = useState(toDateInputValue(entry.due_at));
+  const [completedDate, setCompletedDate] = useState(
+    toDateInputValue(entry.completed_at),
+  );
   const [destination, setDestination] = useState(travelMeta.destination ?? "");
   const [amount, setAmount] = useState(formatAmountInput(travelMeta.amount));
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +99,7 @@ export function EntryItem({
     setType(entry.type);
     setCategoryId(entry.category_id ?? categories[0]?.id ?? "");
     setDueDate(toDateInputValue(entry.due_at));
+    setCompletedDate(toDateInputValue(entry.completed_at));
     setDestination(meta.destination ?? "");
     setAmount(formatAmountInput(meta.amount));
     setError(null);
@@ -165,6 +170,11 @@ export function EntryItem({
           type,
           categoryId,
           dueAt: dueDate ? new Date(`${dueDate}T09:00:00`).toISOString() : null,
+          completedAt: isDone
+            ? completedDate
+              ? new Date(`${completedDate}T09:00:00`).toISOString()
+              : null
+            : undefined,
           destination: isTravel ? destination || null : null,
           amount: isTravel ? parseAmountInput(amount) : null,
         });
@@ -289,6 +299,29 @@ export function EntryItem({
             )}
           </div>
 
+          {isDone && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Label>완료일</Label>
+              <Input
+                type="date"
+                value={completedDate}
+                onChange={(e) => setCompletedDate(e.target.value)}
+                className="h-8 w-auto text-xs"
+              />
+              {completedDate && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCompletedDate("")}
+                  className="h-7 text-xs"
+                >
+                  제거
+                </Button>
+              )}
+            </div>
+          )}
+
           {error && (
             <p className="mt-2 text-sm text-destructive" role="alert">
               {error}
@@ -327,12 +360,18 @@ export function EntryItem({
 
   const typeTheme = getEntryTypeTheme(entry.type);
   const entrySpace = getEntrySpace(entry);
-  const compactMetaText = [
-    category?.name,
-    entry.due_at ? formatEntryDue(entry.due_at) : null,
-  ]
+  const dueMetaLabel = entry.due_at
+    ? isTodoLike
+      ? `마감 ${formatEntryDue(entry.due_at)}`
+      : formatEntryDue(entry.due_at)
+    : null;
+  const completedMetaLabel =
+    isTodoLike && isDone && entry.completed_at
+      ? `완료 ${formatEntryDue(entry.completed_at)}`
+      : null;
+  const compactMetaText = [category?.name, dueMetaLabel, completedMetaLabel]
     .filter(Boolean)
-    .join(" ");
+    .join(" · ");
 
   return (
     <li
@@ -408,9 +447,12 @@ export function EntryItem({
                 {TYPE_LABELS[entry.type]}
               </span>
             )}
-            {entry.due_at && (
+            {dueMetaLabel && (
+              <span className="shrink-0 tabular-nums">{dueMetaLabel}</span>
+            )}
+            {completedMetaLabel && (
               <span className="shrink-0 tabular-nums">
-                {formatEntryDue(entry.due_at)}
+                {completedMetaLabel}
               </span>
             )}
             {travelMeta.destination && (

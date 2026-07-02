@@ -12,6 +12,11 @@ import type { Entry } from "@/lib/types";
 import { isSchemaSetupError } from "@/lib/supabase/errors";
 
 function getCalendarDayKey(entry: Entry): string | null {
+  const isTodoLike = entry.type === "todo" || entry.type === "checklist";
+  // 완료된 할일은 실제 완료한 날에 표시 (마감일과 구분)
+  if (isTodoLike && entry.status === "done" && entry.completed_at) {
+    return getSeoulDateKeyFromIso(entry.completed_at);
+  }
   if (entry.due_at) {
     return getSeoulDateKeyFromIso(entry.due_at);
   }
