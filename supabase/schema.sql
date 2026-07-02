@@ -131,7 +131,6 @@ ALTER TABLE public.entries
 CREATE TABLE IF NOT EXISTS user_settings (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   travel_checklist_template JSONB,
-  work_checklist_template JSONB,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -388,4 +387,9 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION delete_board_atomic(UUID) TO authenticated;
+
+-- supabase/migrations/012_work_checklist_template.sql
+-- 업무 공간 프로젝트 체크리스트 템플릿 (개인 여행 템플릿과 동일 패턴)
+ALTER TABLE user_settings
+  ADD COLUMN IF NOT EXISTS work_checklist_template JSONB;
 
