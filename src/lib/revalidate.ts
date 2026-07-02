@@ -12,6 +12,7 @@ const APP_DATA_PATHS = [
   "/boards",
   "/done",
   "/inbox",
+  "/activities",
 ] as const;
 
 export function revalidateAppData(boardId?: string | null) {
@@ -28,6 +29,11 @@ export function revalidateEntryPaths(boardId?: string | null) {
 
 export function revalidateBoardPaths(boardId?: string | null) {
   revalidateAppData(boardId);
+}
+
+export function revalidateActivityPaths() {
+  revalidatePath("/activities");
+  revalidatePath("/", "layout");
 }
 
 /** 공간·테마 등 레이아웃 전역 설정 */

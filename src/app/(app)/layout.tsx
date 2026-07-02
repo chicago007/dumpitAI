@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { ToastProvider } from "@/components/ui/toast";
+import { getActivityWeekCount } from "@/actions/activities";
 import { getActiveSpace } from "@/actions/space";
 import { getAppearanceTheme } from "@/actions/appearance";
 import { getSidebarCounts, type SidebarCounts } from "@/actions/entries";
@@ -26,8 +27,12 @@ export default async function AppLayout({
   const activeTheme = await getAppearanceTheme();
 
   let counts = EMPTY_COUNTS;
+  let activityWeekCount = 0;
   try {
-    counts = await getSidebarCounts(activeSpace);
+    [counts, activityWeekCount] = await Promise.all([
+      getSidebarCounts(activeSpace),
+      getActivityWeekCount(activeSpace).catch(() => 0),
+    ]);
   } catch (err) {
     console.error("[AppLayout] getSidebarCounts failed:", err);
     counts = EMPTY_COUNTS;
@@ -38,6 +43,7 @@ export default async function AppLayout({
       <div className="min-h-screen bg-background">
         <Sidebar
           counts={counts}
+          activityWeekCount={activityWeekCount}
           activeSpace={activeSpace}
           activeTheme={activeTheme}
         />

@@ -17,6 +17,7 @@ import {
   previewInboxInput,
   saveInboxPreview,
 } from "@/actions/inbox";
+import { extractAndSaveActivities } from "@/actions/activities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -448,7 +449,7 @@ export function SmartInput({
   const prefixHint = entryType ? TYPE_PREFIX[entryType] : "";
   const defaultPlaceholder = compact
     ? `${prefixHint}입력… Enter 저장 · Shift+Enter 줄 나눔`
-    : `${prefixHint}한 줄은 Enter로 바로 저장\n여러 줄은 분석 후 저장 · 공간은 AI가 추정`;
+    : `${prefixHint}한 줄은 Enter로 바로 저장\n여러 줄은 분석 후 저장 · 독서 30분 등 활동도 입력 가능`;
 
   useEffect(() => {
     if (isOpen) {
@@ -462,6 +463,22 @@ export function SmartInput({
       setError(null);
       onCollapse?.();
     }
+  }
+
+  function afterActivitySave(savedCount: number) {
+    setLastResult(null);
+    setPreview(null);
+    setItems([]);
+    setText("");
+    if (compact) {
+      setIsOpen(false);
+      onCollapse?.();
+    }
+    toast(
+      savedCount > 1 ? `활동 ${savedCount}건을 기록했습니다.` : "활동을 기록했습니다.",
+      "success",
+    );
+    router.refresh();
   }
 
   function afterSave(result: InboxProcessResult) {
@@ -484,9 +501,24 @@ export function SmartInput({
     setLastResult(null);
     startTransition(async () => {
       try {
-        const result = await previewInboxInput(text);
+        const { remainingText, savedCount } = await extractAndSaveActivities(text);
+        if (savedCount > 0 && !remainingText) {
+          afterActivitySave(savedCount);
+          return;
+        }
+
+        const inputText = savedCount > 0 ? remainingText : text;
+        if (!inputText.trim()) {
+          afterActivitySave(savedCount);
+          return;
+        }
+
+        const result = await previewInboxInput(inputText);
         setPreview(result);
         setItems(result.items);
+        if (savedCount > 0) {
+          toast(`활동 ${savedCount}건 기록 · 나머지 분류 미리보기`, "success");
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "분석에 실패했습니다.");
         toast(e instanceof Error ? e.message : "분석에 실패했습니다.", "error");
@@ -500,13 +532,45 @@ export function SmartInput({
     setLastResult(null);
     startTransition(async () => {
       try {
-        const result = await previewInboxInput(text);
-        if (result.needsSpaceConfirm || isMultiLine) {
+        const { remainingText, savedCount } = await extractAndSaveActivities(text);
+        if (savedCount > 0 && !remainingText) {
+          afterActivitySave(savedCount);
+          return;
+        }
+
+        const inputText = savedCount > 0 ? remainingText : text;
+        if (!inputText.trim()) {
+          afterActivitySave(savedCount);
+          return;
+        }
+
+        const result = await previewInboxInput(inputText);
+        if (result.needsSpaceConfirm || inputText.includes("\n")) {
           setPreview(result);
           setItems(result.items);
+          if (savedCount > 0) {
+            toast(`활동 ${savedCount}건 기록 · 나머지 확인 후 저장`, "success");
+          }
           return;
         }
         const saved = await saveInboxPreview({ ...result, items: result.items });
+        if (savedCount > 0) {
+          toast(
+            `활동 ${savedCount}건 기록 · ${summarizeResult(saved)}`,
+            "success",
+          );
+          setLastResult(saved);
+          setPreview(null);
+          setItems([]);
+          setText("");
+          if (compact) {
+            setIsOpen(false);
+            onCollapse?.();
+          }
+          router.refresh();
+          window.setTimeout(() => setLastResult(null), 4000);
+          return;
+        }
         afterSave(saved);
       } catch (e) {
         setError(e instanceof Error ? e.message : "저장에 실패했습니다.");
@@ -591,7 +655,7 @@ export function SmartInput({
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-violet-600" />
               <p className="text-xs text-muted-foreground sm:text-sm">
-                AI 자동 분류 · @할일 @일정 @메모 · @p 프로젝트 (줄마다 @일정 가능)
+                AI 자동 분류 · @할일 @일정 @메모 · 독서/운동 등 활동 기록
               </p>
             </div>
           )}

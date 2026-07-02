@@ -131,7 +131,7 @@ export default async function HomePage({
       compact
       className="max-w-2xl"
       title={`${VIEW_SPACE_LABELS[activeSpace]} · 입력`}
-      description="한 줄은 Enter로 바로 저장 · 여러 줄은 AI가 분류합니다"
+      description="한 줄은 Enter로 바로 저장 · 독서·운동 등 활동도 같은 입력창에서 기록"
     >
       {isPersonal && travelCategory && travelHints.length > 0 && (
         <DetectedTravelHints

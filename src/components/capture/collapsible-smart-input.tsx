@@ -44,9 +44,11 @@ export function CollapsibleSmartInput({
 export function AddEntryButton({
   onClick,
   className,
+  "aria-label": ariaLabel = "새 항목 추가",
 }: {
   onClick: () => void;
   className?: string;
+  "aria-label"?: string;
 }) {
   return (
     <Button
@@ -58,7 +60,7 @@ export function AddEntryButton({
         className,
       )}
       onClick={onClick}
-      aria-label="새 항목 추가"
+      aria-label={ariaLabel}
     >
       <Plus className="h-4 w-4" />
     </Button>

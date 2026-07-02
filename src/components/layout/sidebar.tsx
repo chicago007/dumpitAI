@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  Dumbbell,
   LayoutGrid,
   LayoutList,
   Menu,
@@ -40,6 +42,8 @@ interface NavItem {
   count?: number;
   dotColor?: string;
 }
+
+const SIDEBAR_LIST_OPEN_KEY = "sidebar-list-open";
 
 const TYPE_ITEMS: {
   href: string;
@@ -127,17 +131,34 @@ function NavRow({
 
 function SidebarContent({
   counts,
+  activityWeekCount,
   pathname,
   onNavigate,
   activeSpace,
   activeTheme,
 }: {
   counts: SidebarCounts;
+  activityWeekCount: number;
   pathname: string;
   onNavigate: () => void;
   activeSpace: ViewSpace;
   activeTheme: AppearanceThemeId;
 }) {
+  const [listOpen, setListOpen] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(SIDEBAR_LIST_OPEN_KEY);
+    if (stored !== null) setListOpen(stored === "true");
+  }, []);
+
+  function toggleListOpen() {
+    setListOpen((open) => {
+      const next = !open;
+      localStorage.setItem(SIDEBAR_LIST_OPEN_KEY, String(next));
+      return next;
+    });
+  }
+
   const primaryItems: NavItem[] = [
     { href: "/", label: "입력", icon: <Plus className="h-4 w-4" /> },
     {
@@ -153,13 +174,22 @@ function SidebarContent({
     },
   ];
 
-  const typeItems: NavItem[] = TYPE_ITEMS.map((t) => ({
-    href: t.href,
-    label: t.label,
-    icon: t.icon,
-    dotColor: t.color,
-    count: counts[t.key],
-  }));
+  const typeItems: NavItem[] = [
+    ...TYPE_ITEMS.map((t) => ({
+      href: t.href,
+      label: t.label,
+      icon: t.icon,
+      dotColor: t.color,
+      count: counts[t.key],
+    })),
+    {
+      href: "/activities",
+      label: "활동",
+      icon: <Dumbbell className="h-4 w-4" />,
+      dotColor: "#F97316",
+      count: activityWeekCount,
+    },
+  ];
 
   const secondaryItems: NavItem[] = [
     {
@@ -221,19 +251,32 @@ function SidebarContent({
         <Separator className="bg-border/60" />
 
         <div>
-          <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <button
+            type="button"
+            onClick={toggleListOpen}
+            className="mb-1.5 flex w-full items-center gap-1.5 px-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+            aria-expanded={listOpen}
+          >
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform",
+                !listOpen && "-rotate-90",
+              )}
+            />
             목록
-          </p>
-          <div className="space-y-0.5">
-            {typeItems.map((item) => (
-              <NavRow
-                key={item.href}
-                item={item}
-                active={pathname === item.href}
-                onNavigate={onNavigate}
-              />
-            ))}
-          </div>
+          </button>
+          {listOpen && (
+            <div className="space-y-0.5">
+              {typeItems.map((item) => (
+                <NavRow
+                  key={item.href}
+                  item={item}
+                  active={pathname === item.href}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         <Separator className="bg-border/60" />
@@ -255,10 +298,12 @@ function SidebarContent({
 
 export function Sidebar({
   counts,
+  activityWeekCount,
   activeSpace,
   activeTheme,
 }: {
   counts: SidebarCounts;
+  activityWeekCount: number;
   activeSpace: ViewSpace;
   activeTheme: AppearanceThemeId;
 }) {
@@ -272,6 +317,7 @@ export function Sidebar({
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] border-r border-border/50 md:block">
         <SidebarContent
           counts={counts}
+          activityWeekCount={activityWeekCount}
           pathname={pathname}
           onNavigate={closeDrawer}
           activeSpace={activeSpace}
@@ -312,6 +358,7 @@ export function Sidebar({
         <SheetContent side="left" className="w-[280px] p-0">
           <SidebarContent
             counts={counts}
+            activityWeekCount={activityWeekCount}
             pathname={pathname}
             onNavigate={closeDrawer}
             activeSpace={activeSpace}
